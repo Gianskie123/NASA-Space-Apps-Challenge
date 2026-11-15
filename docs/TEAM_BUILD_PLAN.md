@@ -265,7 +265,7 @@ ee.batch.Export.table.toDrive(table, 'province_alan', fileFormat='CSV',
 
 ## Member 3: statistics and modelling
 
-**Status:** Part A **done** (`src/trends.py`, 20 tests pass, matches `pymannkendall` exactly). Parts B and C are built in `notebooks/03_member3_bird_model.ipynb`: the baseline model, observed cell rates and Moran's I already run on Member 1's real data; the full light model, effect curve and robustness refits switch on automatically when Member 2's `grid_monthly` and `grid_landcover` exist (code path tested end to end with mock covariates). Remaining: `province_trends.parquet` (needs Member 2's province tables) and the full model.
+**Status: done.** Part A: `src/trends.py` (matches `pymannkendall` exactly) and `src/province_trends.py` → `province_trends.parquet` (85 provinces × 6 variables, FDR per variable); 24 tests pass. Parts B and C: `notebooks/03_member3_bird_model.ipynb` run end to end on real Member 1 + Member 2 data, all checks pass. **Headline:** per 1 SD more night light, odds of detecting a light-sensitive species ×0.53 (95% CI 0.47–0.59) vs ×0.88 (0.82–0.95) for light-tolerant species; interaction p ≤ 0.001, also with 5×5-cell block clusters; same sign and significance in all six robustness refits (no thinning, residents only, ≤ 5 km, incl. water-heavy cells, without LST). Main sample 12,953 checklists in 1,136 cells. **Notes for the team:** (1) the water rule removes the wetland/mudflat hotspots from the main model, so a refit that keeps them is in `robustness.csv`; (2) MODIS daytime LST falls after 2020 in all 85 provinces, most likely Terra's drifting overpass time rather than real cooling: flag it in the Trend Explorer and About page.
 
 **Goal:** two deliverables. (A) A trend-test module the app calls live whenever a user changes a selection. (B) The bird model that tests whether light affects sensitive species more than tolerant ones. Start (A) right away with fake data; start (B) when Members 1 and 2 hand off.
 
@@ -332,7 +332,7 @@ Moran's I measures whether values cluster in space (nearby cells more alike than
 
 **A null result is still a result.** If the interaction isn't significant, report it honestly ("no detectable difference at this scale"). Judges respect that far more than a stretched claim.
 
-**Outputs:** `src/trends.py`, `tests/test_trends.py`, `province_trends.parquet`, `model_coefficients.csv` (term, OR, CI low, CI high, p), `effect_curve.parquet`, `cell_rates.parquet`, `findings.md`.
+**Outputs:** `src/trends.py`, `src/province_trends.py`, `tests/`, `province_trends.parquet`, `model_coefficients.csv` (term, OR, CI low, CI high, p; plus a derived `z_log_alan (sensitive)` row), `effect_curve.parquet` (`group, sensitive, alan, prob, ci_low, ci_high`), `cell_rates.parquet`, `robustness.csv`, `alan_quartile_check.csv`, `spatial_checks.csv`, `findings.md`.
 
 **Checks (all must pass before handing off)**
 
@@ -341,15 +341,15 @@ Moran's I measures whether values cluster in space (nearby cells more alike than
 - [x] A constant series returns "no significant trend" without crashing; a series with 30% NaN still runs.
 - [x] A 2-year window returns "window too short".
 - [x] `trend_summary` runs in under 1 second per call (the app calls it live).
-- [ ] The model converges with no NaN coefficients. Row count and number of cells are reported.
+- [x] The model converges with no NaN coefficients. Row count and number of cells are reported.
 - [x] Sanity: the `log_duration` coefficient is **positive** (longer checklists detect more birds). If not, something is wrong with the join.
 - [x] Sanity: migrant species are detected more in October–March (check the month terms or raw rates).
-- [ ] Raw cross-check: reporting rate by ALAN quartile for each group points the same way as the model's effect curve.
-- [ ] VIF table and the trait mapping table are in the notebook.
+- [x] Raw cross-check: reporting rate by ALAN quartile for each group points the same way as the model's effect curve.
+- [x] VIF table and the trait mapping table are in the notebook.
 
-* [ ] Moran's I on the gap map and on effort are reported (I, p-value, number of cells), with the sentence for the app and slides.
-* [ ] Moran's I on residuals is reported; if significant, the 5×5-block refit is reported alongside, and the headline result is checked against it.
-* [ ] Main model uses ≤ 2 km checklists; the ≤ 5 km refit is in the robustness results.
+* [x] Moran's I on the gap map and on effort are reported (I, p-value, number of cells), with the sentence for the app and slides.
+* [x] Moran's I on residuals is reported; if significant, the 5×5-block refit is reported alongside, and the headline result is checked against it.
+* [x] Main model uses ≤ 2 km checklists; the ≤ 5 km refit is in the robustness results.
 
 **Hand-off:** `trends.py` to Member 4 as early as possible (even before the real data). All other files when the model is done, plus the headline sentence for the app and slides.
 
