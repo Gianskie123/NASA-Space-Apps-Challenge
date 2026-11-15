@@ -8,3 +8,6 @@ data/*.zip
 .superpowers/
 # Member 2 monthly grid (35 MB): bird model input only, not used by the app
 data/processed/grid_monthly.parquet
+# Python bytecode cache
+__pycache__/
+*.pyc
