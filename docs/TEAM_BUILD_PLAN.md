@@ -265,7 +265,31 @@ ee.batch.Export.table.toDrive(table, 'province_alan', fileFormat='CSV',
 
 ## Member 3: statistics and modelling
 
-**Status: done.** Part A: `src/trends.py` (matches `pymannkendall` exactly) and `src/province_trends.py` → `province_trends.parquet` (85 provinces × 6 variables, FDR per variable); 24 tests pass. Parts B and C: `notebooks/03_member3_bird_model.ipynb` run end to end on real Member 1 + Member 2 data, all checks pass. **Headline:** per 1 SD more night light, odds of detecting a light-sensitive species ×0.53 (95% CI 0.47–0.59) vs ×0.88 (0.82–0.95) for light-tolerant species; interaction p ≤ 0.001, also with 5×5-cell block clusters. The difference comes from **resident** species (resident sensitive ×0.35 vs resident tolerant ×0.89); migratory sensitive and tolerant species respond alike (×0.74 vs ×0.77, p = 0.70). Key term has the same sign and significance in all six robustness refits (no thinning, residents only, ≤ 5 km, incl. water-heavy cells, without LST). Main sample 12,953 checklists in 1,136 cells. **Notes for the team:** (1) the water rule removes the wetland/mudflat hotspots from the main model, so a refit that keeps them is in `robustness.csv`; (2) MODIS daytime LST falls after 2020 in all 85 provinces, most likely Terra's drifting overpass time rather than real cooling: flag it in the Trend Explorer and About page.
+**Status: done** (merged to `main`, Nov 15). All checks below are ticked; 24 tests pass.
+
+**What was built**
+
+- **Part A, trend module.** `src/trends.py` (Seasonal Mann–Kendall and Hamed–Rao, Sen's slope, FDR, plain-English sentence; matches `pymannkendall` exactly) and `src/province_trends.py`, which writes `province_trends.parquet`: 85 provinces × 6 variables, FDR per variable. Run with `python src/province_trends.py`.
+- **Parts B and C, bird model.** `notebooks/03_member3_bird_model.ipynb`, run end to end on real Member 1 and Member 2 data; every check passes.
+- **Two bugs fixed on the way.** (1) Rows were dropped for missing NDVI before NDVI was excluded from the model, which threw away 45% of the sample (now 12,953 checklists instead of 7,678). (2) `effect_curve.parquet` columns renamed to what the app reads (`prob, ci_low, ci_high`).
+
+**Results**
+
+| | Value |
+| --- | --- |
+| Main sample | 12,953 checklists (≤ 2 km, thinned) in 1,136 cells; covariates night light, % forest, LST, rain (NDVI out: r = −0.77 with light; % urban out: duplicates light) |
+| Headline | Per 1 SD more night light (about 3× brighter), odds of reporting a **light-sensitive** species ×0.53 (95% CI 0.47–0.59) vs ×0.88 (0.82–0.95) for **light-tolerant** species; difference p ≤ 0.001, also with 5×5-cell block clusters |
+| Who drives it | **Resident** species: sensitive ×0.35 vs tolerant ×0.89. Migratory sensitive and tolerant species respond alike (×0.74 vs ×0.77, p = 0.70) |
+| Robustness | Same sign and p < 10⁻¹⁶ in all five refits: no thinning, residents only, ≤ 5 km, water-heavy cells kept, without LST |
+| Raw cross-check | Sensitive reporting rate falls from 5.3% (darkest quarter of cells) to 0.85% (brightest), same direction as the model |
+| Moran's I | Gaps 0.29 (13,279 land cells), effort 0.23, full-model residuals 0.22; all p ≤ 0.001 |
+| Province trends | Night light up significantly in 82 of 85 provinces (NCR +0.68 nW/cm²/sr per year) |
+
+**Notes for the team**
+
+1. The water rule (cells > 50% water dropped) removes the wetland and mudflat hotspots (Las Piñas–Parañaque, Tanza, Paombong, Balanga) from the main model. The "water-heavy cells kept" refit gives the same result.
+2. **MODIS daytime LST falls after 2020 in all 85 provinces** (flat 2014–2020, then about −0.13 °C/yr). This is most likely the Terra satellite's overpass drifting earlier (cooler hours), not real cooling. Show a warning wherever LST trends appear.
+3. Land cover for 2025 is the 2024 map carried forward (`lc_year_used`), so yearly land-cover trends include one repeated year.
 
 **Goal:** two deliverables. (A) A trend-test module the app calls live whenever a user changes a selection. (B) The bird model that tests whether light affects sensitive species more than tolerant ones. Start (A) right away with fake data; start (B) when Members 1 and 2 hand off.
 
@@ -351,9 +375,33 @@ Moran's I measures whether values cluster in space (nearby cells more alike than
 * [x] Moran's I on residuals is reported; if significant, the 5×5-block refit is reported alongside, and the headline result is checked against it.
 * [x] Main model uses ≤ 2 km checklists; the ≤ 5 km refit is in the robustness results.
 
-**Hand-off:** `trends.py` to Member 4 as early as possible (even before the real data). All other files when the model is done, plus the headline sentence for the app and slides.
+**Hand-off: done.** All files are in `data/processed/` on `main`: `province_trends.parquet`, `model_coefficients.csv` (includes a derived `z_log_alan (sensitive)` row), `effect_curve.parquet`, `cell_rates.parquet`, `spatial_checks.csv`, `robustness.csv`, `alan_by_migratory_status.csv`, `alan_quartile_check.csv`, `findings.md`, `figures/effect_curve.png`. The headline sentence for the app and slides is the `## Headline` paragraph of `findings.md`; the Moran's I sentences are under "For the app and slides". `grid_monthly.parquet` (35 MB, bird-model input only) is git-ignored: get it from Member 2 to rerun the notebook.
 
 ## Member 4: web app development
+
+**Status (Nov 15):** the three pages are built (`app/`, merged in PR #1). Every real data file from Members 1, 2 and 3 is now on `main`, and the app picks real files over mock ones automatically, so no code change is needed for the swap. Not yet deployed.
+
+**What's left for Member 4, in order**
+
+1. **Pull `main` and run the app on real data.** Every page should show "observed" or "model" source labels, never "mock" or "pending". Fix anything that breaks with the real column types (Member 2's tables use `int16`/`int8` and the `string` dtype).
+2. **LST warning on the Trend Explorer.** When the variable is land surface temperature, show a yellow note: *"MODIS Terra's overpass time drifts earlier after 2020, so daytime land temperature reads cooler from 2021 onward. The decreasing trend is likely partly an instrument artifact."* Without it, a judge sees "decreasing" in all 85 provinces.
+3. **Birds & Light, effect chart.** Let the y-axis fit the data (predictions run 2–22%); `range=[0, 1]` (`app/views/birds_and_light.py:290`) squashes both lines flat.
+4. **Birds & Light, model tiles.** Add `"z_log_alan (sensitive)"` to `key_terms` (`birds_and_light.py`) so the clearest number (×0.53 for sensitive species) gets a tile. Its label comes from the CSV's `label` column.
+5. **Birds & Light, residual note.** The caption says "the plan calls for a refit with larger spatial blocks". That refit is done: change it to say the result holds with 5×5-cell block clusters (p ≤ 0.001, see `findings.md`).
+6. **About page, datasets** (`app/views/about.py`), to match what Member 2 actually used:
+   - Province boundaries: `FAO/GAUL/2025/level2` (not GAUL 2015).
+   - Rain: `NASA/GPM_L3/IMERG_V07` half-hourly, summed to monthly (not the monthly collection), to cover through December 2025.
+   - Land cover: MODIS `MODIS/061/MCD12Q1`, `LC_Type1`, yearly class shares; 2025 uses the 2024 map.
+   - Limitations: add the LST drift and "the light effect is concentrated in resident species".
+7. **`REFERENCES.md`** at the repo root (the About page points to it): every dataset above, the libraries in `requirements.txt` plus statsmodels, libpysal and esda (notebooks), and an **AI assistance** section (Claude was used for code and text).
+8. **Deploy** on Streamlit Community Cloud from `app/streamlit_app.py`, then set up the keep-alive GitHub Action and record the backup screen recording.
+9. **Run the Member 4 checks and the integration test below.** For the app-vs-notebook cross-check, use these reference values (2014–2025, monthly; from `province_trends.parquet`):
+
+   | Province | Variable | Sen's slope per year | p | Verdict |
+   | --- | --- | --- | --- | --- |
+   | National Capital Region | Night light | +0.6835 nW/cm²/sr | < 0.001 | increasing |
+   | Cebu | NDVI | +0.00319 | < 0.001 | increasing |
+   | Davao Del Sur | Rain | +2.248 mm/month | 0.212 | no significant trend |
 
 **Goal:** a public, no-login web app with three pages, deployed from the team's GitHub repo. Start immediately with **mock data** in the agreed file formats, so you never wait on the others. Swap in real files as they arrive.
 
