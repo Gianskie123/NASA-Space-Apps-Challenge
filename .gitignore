@@ -1,3 +1,7 @@
 # I'll add the final ebird records to use
 /Cleaned EBIRD Records/
 /RAW EBIRD Records/
+# Internal hand-off notes (not for the public repo)
+docs/HANDOFF_MEMBER1_TO_MEMBER3.md
+# Drive download archives of the processed folder
+data/*.zip
