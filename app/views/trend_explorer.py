@@ -2,7 +2,7 @@
 
 Order: the controls, then the answer for the selection (direction, size, units, window and significance
 together), then the evidence (that province's time series), then where else it changed (two maps).
-All statistics come from Member 3's src/trends.py through trend_bridge.
+All statistics come from src/trends.py through trend_bridge.
 """
 
 from __future__ import annotations
@@ -52,9 +52,12 @@ def variable_table(var: str) -> pd.DataFrame:
     """Long table: adm2_code, province, year, month, date, value for one variable."""
     lookup = ld.province_lookup()
     if VARIABLES[var]["table"] == "landcover":
-        df = ld.province_landcover()[["adm2_code", "year", var]].rename(columns={var: "value"})
+        lc = ld.province_landcover()
+        cols = ["adm2_code", "year", var] + (["province"] if "province" in lc.columns else [])
+        df = lc[cols].rename(columns={var: "value"})
         df["month"] = 1
-        df = df.merge(lookup[["adm2_code", "province"]], on="adm2_code", how="left")
+        if "province" not in df.columns:
+            df = df.merge(lookup[["adm2_code", "province"]], on="adm2_code", how="left")
     else:
         df = ld.province_monthly(("province", "adm2_code", "year", "month", var)).rename(columns={var: "value"})
     df["date"] = pd.to_datetime(dict(year=df["year"], month=df["month"], day=1))
@@ -102,15 +105,53 @@ def time_window(periods: list[pd.Timestamp], is_lc: bool) -> tuple[pd.Timestamp,
     return max(first, pd.Timestamp(year=y0, month=m0, day=1)), min(last, pd.Timestamp(year=y1, month=m1, day=1))
 
 
+def animated_map(anim: pd.DataFrame, geo: dict, meta: dict, crange: tuple[float, float], step_word: str) -> go.Figure:
+    """Province choropleth with one frame per month (or year).
+
+    Built by hand rather than with px.choropleth_map(animation_frame=...): Plotly Express copies the whole
+    boundary file into every frame (about 74 MB for 85 provinces x 144 months). Here the boundaries are sent
+    once and each frame carries only that month's values, so the browser receives under 2 MB.
+    """
+    frames_order = list(dict.fromkeys(anim["frame"]))
+    by_frame = {f: g for f, g in anim.groupby("frame", sort=False)}
+    hover = "%{text}<br>" + step_word + " %{customdata}: %{z:.3g} " + meta["unit"] + "<extra></extra>"
+
+    def trace_for(f: str, full: bool):
+        g = by_frame[f]
+        kw = dict(locations=g["adm2_code"], z=g["value"], text=g["province"], customdata=[f] * len(g))
+        if full:
+            kw.update(geojson=geo, featureidkey="properties.adm2_code", colorscale=meta["colorscale"],
+                      zmin=crange[0], zmax=crange[1], marker_opacity=0.85, marker_line_width=0.4,
+                      hovertemplate=hover, colorbar=dict(title=meta["unit"], thickness=12))
+        return go.Choroplethmap(**kw)
+
+    first = frames_order[0]
+    fig = go.Figure(data=[trace_for(first, full=True)],
+                    frames=[go.Frame(name=f, data=[trace_for(f, full=False)], traces=[0]) for f in frames_order])
+    play = dict(frame=dict(duration=250, redraw=True), fromcurrent=True, transition=dict(duration=0))
+    fig.update_layout(
+        map=dict(style=MAP_STYLE, center=PH_CENTER, zoom=PH_ZOOM), margin=dict(l=0, r=0, t=8, b=88),
+        # controls get their own row under the map; the current month sits at the right end of the slider
+        updatemenus=[dict(type="buttons", direction="left", x=0.0, y=0.0, xanchor="left", yanchor="top",
+                          pad=dict(t=36, r=8), showactive=False,
+                          buttons=[dict(label="Play", method="animate", args=[None, play]),
+                                   dict(label="Pause", method="animate",
+                                        args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")])])],
+        sliders=[dict(active=0, x=0.27, y=0.0, len=0.73, xanchor="left", yanchor="top", pad=dict(t=30, b=0),
+                      currentvalue=dict(prefix=f"{step_word}: ", xanchor="right", offset=6),
+                      steps=[dict(label=f, method="animate",
+                                  args=[[f], dict(frame=dict(duration=0, redraw=True), mode="immediate")])
+                             for f in frames_order])],
+    )
+    return fig
+
+
 # ---------------------------------------------------------------- header
 ui.page_header("Trend Explorer",
                "Pick a NASA satellite measurement, a province and a time window. The page tells you whether it "
                "changed, by how much per year, and whether the change is statistically significant.")
 
-satellite_src = "mock" if ld.is_mock("province_monthly.parquet") else "satellite"
-if satellite_src == "mock":
-    ui.alert("<b>Mock data on this page.</b> Member 2's NASA tables are not in yet, so the maps and numbers below "
-             "are placeholders that show how the page works. They are not results.", kind="warn", html=True)
+satellite_src = "satellite" if ld.status("province_monthly.parquet") == "real" else None
 
 # ---------------------------------------------------------------- controls, next to what they change
 with st.container(border=True):
@@ -136,6 +177,10 @@ with st.container(border=True):
     periods = [pd.Timestamp(p) for p in sorted(df["date"].unique())]
     start, end = time_window(periods, is_lc)
 
+if var == "lst_day":
+    ui.alert("MODIS Terra's overpass time drifts earlier after 2020, so daytime land temperature reads cooler from "
+             "2021 onward. The decreasing trend is likely partly an instrument artifact.", kind="warn")
+
 date_fmt = "%Y" if is_lc else "%b %Y"
 start_lbl, end_lbl = start.strftime(date_fmt), end.strftime(date_fmt)
 window = df[(df["date"] >= start) & (df["date"] <= end)].copy()
@@ -159,8 +204,8 @@ coverage_tile = ui.stat_html("Data coverage", f"{(n_valid / n_total if n_total e
                              desc=f"{n_valid} of {n_total} {steps} have usable data")
 
 if not trend_bridge.TREND_AVAILABLE:
-    ui.alert("<b>Trend test pending.</b> Member 3's <code>src/trends.py</code> is not in the repo yet; direction, "
-             "rate and significance appear here once it is.", kind="pending", html=True)
+    ui.alert("<b>The trend test is not available right now.</b> Direction, rate and significance appear here "
+             "once it loads.", kind="pending", html=True)
     ui.stats_row([coverage_tile])
 elif failed:
     ui.alert("The trend test could not run for this selection. Try another window or province.", kind="danger")
@@ -181,8 +226,7 @@ elif result:
             ci = f" (95% CI {fmt(result['slope_ci_low'])} to {fmt(result['slope_ci_high'])})"
         used = result.get("n_months") if not is_lc else result.get("n_years")
         missing = result.get("n_missing") or 0
-        mock_note = " Computed on mock data, so this is not a result." if satellite_src == "mock" else ""
-        ui.insight(result.get("sentence") or "", meta=f"{result.get('test', '')}.{mock_note}")
+        ui.insight(result.get("sentence") or "", meta=f"{result.get('test', '')}.")
         ui.stats_row([
             ui.stat_html("Direction", direction.capitalize(), accent=significant,
                          desc=f"{fmt_p(result.get('p_value'))}; "
@@ -238,26 +282,17 @@ with c_left:
     anim = window.dropna(subset=["value"]).sort_values("date").copy()
     anim["frame"] = anim["date"].dt.strftime("%Y" if is_lc else "%Y-%m")
     anim["value"] = sig3(anim["value"])
-    fig = px.choropleth_map(
-        anim, geojson=geo, locations="adm2_code", featureidkey="properties.adm2_code",
-        color="value", animation_frame="frame", hover_name="province",
-        hover_data={"adm2_code": False, "frame": True, "value": ":.3g"},
-        range_color=crange, color_continuous_scale=meta["colorscale"],
-        map_style=MAP_STYLE, center=PH_CENTER, zoom=PH_ZOOM, opacity=0.85,
-        labels={"value": meta["unit"], "frame": "Year" if is_lc else "Month"},
-    )
-    fig.update_layout(margin=dict(l=0, r=0, t=8, b=0), coloraxis_colorbar=dict(title=meta["unit"], thickness=12))
+    fig = animated_map(anim, geo, meta, crange, "Year" if is_lc else "Month")
     ui.style_fig(fig, height=520, legend_bottom=False)
     st.plotly_chart(fig, width="stretch", config=ui.MAP_CONFIG)
     st.caption(f"Press play to animate. The colour scale is fixed across all {len(periods)} frames, so a colour "
                f"means the same value in every frame.")
 
 with c_right:
-    trends_src = {"real": "model", "mock": "mock", "pending": "pending"}.get(ld.status("province_trends.parquet"))
+    trends_src = "model" if ld.status("province_trends.parquet") == "real" else None
     ui.section("Where it changed", sub="2014–2025, every province tested", source=trends_src)
     if not ld.available("province_trends.parquet"):
-        ui.alert("Pending: Member 3 builds this map from Member 2's province tables, which are not in yet.",
-                 kind="pending")
+        ui.alert("Province trend results are not available right now.", kind="pending")
     else:
         pt = ld.province_trends()
         pt = pt[pt["variable"] == var].copy()
@@ -265,7 +300,10 @@ with c_right:
             ui.alert(f"No province results for {meta['label']} yet.", kind="pending")
         else:
             pt["slope"] = np.where(pt["significant"], sig3(pt["slope_per_year"]), np.nan)
-            lim = float(np.nanmax(np.abs(pt["slope"]))) if pt["slope"].notna().any() else 1.0
+            # 98th percentile rather than the maximum, so one extreme province (NCR for night light) does not
+            # wash every other significant province out to near-white
+            lim = float(np.nanpercentile(np.abs(pt["slope"]), 98)) if pt["slope"].notna().any() else 1.0
+            lim = lim or 1.0
             sig = pt[pt["significant"]]
             wfig = px.choropleth_map(
                 sig, geojson=geo, locations="adm2_code", featureidkey="properties.adm2_code",
@@ -288,7 +326,7 @@ with c_right:
                 ))
             wfig.update_layout(margin=dict(l=0, r=0, t=8, b=0),
                                coloraxis_colorbar=dict(title=f"Sen's slope<br>{meta['unit']}/yr", thickness=12),
-                               legend=dict(y=0.02, x=0.02, bgcolor=ui.PALETTE["paper2"],
+                               legend=dict(y=0.98, x=0.02, yanchor="top", bgcolor=ui.PALETTE["paper2"],
                                            font=dict(color=ui.PALETTE["ink2"])))
             ui.style_fig(wfig, height=520, legend_bottom=False)
             st.plotly_chart(wfig, width="stretch", config=ui.MAP_CONFIG)

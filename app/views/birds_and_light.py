@@ -1,7 +1,7 @@
 """Page 2: Birds & Light (our addition), Greater Manila focus area.
 
 Order: what the page asks, where people actually went birding (observed), what they reported (observed rates),
-then what the model says (model results, or a pending state). Every section names its source.
+then what the model says. Sections running on real data name their source.
 Gaps are drawn as gaps, never as zero; low-data cells are outlined and never get a rate.
 """
 
@@ -52,42 +52,64 @@ def p_txt(p: float) -> str:
     return "p < 0.001" if p < 0.001 else f"p = {p:.3f}"
 
 
-SRC = {"real": "observed", "mock": "mock", "pending": "pending"}
+def short_headline() -> tuple[str, str] | None:
+    """One short sentence from the model's own coefficients, so the headline is short and nothing is invented.
+    Returns (sentence, detail) or None when the full model is not loaded."""
+    coefs = ld.model_coefficients()
+    if not coefs or coefs[1] != "full":
+        return None
+    co = coefs[0].set_index("term")
+    need = {"z_log_alan (sensitive)", "z_log_alan", "z_log_alan:sensitive"}
+    if not need <= set(co.index):
+        return None
+    s_or, t_or = co.loc["z_log_alan (sensitive)", "odds_ratio"], co.loc["z_log_alan", "odds_ratio"]
+    p = co.loc["z_log_alan:sensitive", "p_value"]
+    if s_or < 1 and s_or < t_or and p < 0.05:
+        text = (f"Where nights are brighter, light-sensitive birds are reported less: ×{s_or:.2f} per step of "
+                f"light, against ×{t_or:.2f} for light-tolerant birds.")
+    else:
+        text = (f"Per step of night light, light-sensitive birds ×{s_or:.2f} and light-tolerant birds ×{t_or:.2f}; "
+                "no clear difference between the groups.")
+    return text, (f"Odds of being reported per 1 SD more night light. Difference between groups {p_txt(p)}. "
+                  "Association, not cause.")
+
+
+SRC = {"real": "observed"}  # a section running on backup data shows no source tag
 effort_src = SRC.get(ld.status("effort_grid.parquet"))
 
 # ---------------------------------------------------------------- header and the one rule to read by
 ui.page_header("Birds & Light",
-               "Do light-sensitive birds get reported less where night-time light is brighter or growing? "
-               "Greater Manila, 14.00–15.30 N and 120.50–121.60 E, in cells of about 1 km.")
+               "Are light-sensitive birds reported less where nights are brighter? Greater Manila, in 1 km cells.")
 ui.alert("<b>How to read the maps:</b> grey means nobody submitted a complete birding checklist there. "
          "That is an observation gap, not zero birds. Everything here shows association, not cause.",
          kind="info", html=True)
-if effort_src == "mock":
-    ui.alert("<b>Mock data.</b> Member 1's eBird files are not in yet; the maps below are placeholders.",
-             kind="warn", html=True)
 
 # ---------------------------------------------------------------- the headline finding
 fd = ld.findings()
 f_status = ld.status("findings.md")
+short = short_headline()
 if fd and not fd["pending"]:
-    ui.section("Headline finding", source="model" if f_status == "real" else "mock")
-    ui.insight(fd["headline"], meta=f"Data: {fd['data']}" if fd.get("data") else None)
+    ui.section("Headline finding", source="model" if f_status == "real" else None)
+    if short:
+        ui.insight(short[0], meta=short[1])
+        if st.toggle("Show the full finding, with the resident and migrant split", key="bl_full"):
+            ui.gloss(ui.escape(fd["headline"]))
+            if fd.get("data"):
+                ui.gloss(f"<b>Data:</b> {ui.escape(fd['data'])}")
+    else:
+        ui.insight(fd["headline"], meta=f"Data: {fd['data']}" if fd.get("data") else None)
 else:
-    ui.section("Headline finding", source="pending")
-    note = (fd or {}).get("headline") or "Pending: the night-light model needs Member 2's satellite covariates."
-    note = note.removeprefix("Pending:").strip()
-    note = note[:1].upper() + note[1:]
-    ui.alert(f"<b>Not yet available.</b> {ui.escape(note)}", kind="pending", html=True)
-    if fd and fd.get("data"):
-        ui.gloss(f"<b>Data so far:</b> {ui.escape(fd['data'])}")
+    ui.section("Headline finding")
+    ui.alert("<b>The headline finding is not available yet.</b> It appears once the night-light model results load.",
+             kind="pending", html=True)
 
 # ---------------------------------------------------------------- effort summary (observed)
-water = ld.water_cells()  # None until Member 2's water fraction arrives
+water = ld.water_cells()  # None when only the backup grid is available
 effort_all = ld.effort_by_cell()
-if water is not None:
-    effort_all = effort_all[~effort_all["cell_id"].isin(water)]
-n_cells = len(effort_all)
-n_obs = int((~effort_all["is_gap"]).sum())
+is_water = effort_all["cell_id"].isin(water) if water is not None else pd.Series(False, index=effort_all.index)
+n_cells = int((~is_water).sum())                       # land cells
+n_obs = int((~effort_all["is_gap"] & ~is_water).sum())  # observed land cells
+n_obs_water = int((~effort_all["is_gap"] & is_water).sum())
 n_rated = int((effort_all["n_checklists"] >= 5).sum())
 sp = ld.species() if ld.available("species.parquet") else pd.DataFrame()
 focus = sp[sp["focus"]] if not sp.empty else sp
@@ -99,15 +121,16 @@ ui.section("Where people went birding", sub=f"{FIRST_YEAR}–{LAST_YEAR}", sourc
 ui.stats_row([
     ui.stat_html("Complete checklists", f"{ld.n_checklists():,}" if ld.available("checklists.parquet") else "–",
                  desc="eBird checklists that pass the Best Practices filters"),
-    ui.stat_html("Cells with any checklist", f"{n_obs:,}", aside=f"{n_obs / n_cells:.0%}" if n_cells else None,
-                 desc=f"of {n_cells:,} {cell_word}; the rest are observation gaps"),
+    ui.stat_html("Cells with any checklist", f"{n_obs + n_obs_water:,}",
+                 desc=(f"{n_obs:,} of {n_cells:,} land cells ({n_obs / n_cells:.0%}), plus {n_obs_water:,} mostly-water "
+                       "cells such as coastal wetlands; the rest are observation gaps") if water is not None and n_cells
+                 else f"of {n_cells:,} {cell_word}; the rest are observation gaps"),
     ui.stat_html("Cells with 5 or more", f"{n_rated:,}", desc="Over the whole period; only these can carry a rate"),
     ui.stat_html("Focus species", f"{n_sens + n_tol}", desc=f"{n_sens} light-sensitive, {n_tol} light-tolerant"),
 ])
 
 # ---------------------------------------------------------------- the focus map, controls beside it
-satellite_src = "mock" if ld.is_mock("grid_annual.parquet") else ("satellite" if ld.available("grid_annual.parquet")
-                                                                   else "pending")
+satellite_src = "satellite" if ld.status("grid_annual.parquet") == "real" else None
 rates_ok = ld.available("cell_rates.parquet")
 MODES = {"Birding effort": "effort", "Reporting rate": "rate", "Satellite covariate": "cov"}
 if not rates_ok:
@@ -157,7 +180,7 @@ def build_map(cells: pd.DataFrame, title: str, unit: str, cscale: str, crange: t
     if len(thin):
         fig.add_trace(go.Scattermap(lat=thin["lat"], lon=thin["lon"], mode="markers",
                                     marker=dict(size=6, color=ui.PALETTE["muted"], opacity=0.9),
-                                    name="Fewer than 5 checklists", text=thin["cell_id"], customdata=thin[["n_checklists"]],
+                                    name="Fewer than 5 checklists", text=thin["label"], customdata=thin[["n_checklists"]],
                                     hovertemplate="Cell %{text}<br>%{customdata[0]} checklists: too few for a rate<extra></extra>"))
     if len(low):  # outline effect: a light ring under the coloured marker
         fig.add_trace(go.Scattermap(lat=low["lat"], lon=low["lon"], mode="markers",
@@ -169,7 +192,7 @@ def build_map(cells: pd.DataFrame, title: str, unit: str, cscale: str, crange: t
             lat=shown["lat"], lon=shown["lon"], mode="markers",
             marker=dict(size=7, color=shown["value"], colorscale=cscale, cmin=crange[0], cmax=crange[1], opacity=0.92,
                         colorbar=dict(title=dict(text=unit, side="right"), thickness=12)),
-            name=title, text=shown["cell_id"], customdata=shown[["n_checklists"]],
+            name=title, text=shown["label"], customdata=shown[["n_checklists"]],
             hovertemplate="Cell %{text}<br>" + val_txt + "checklists: %{customdata[0]:,}<extra></extra>",
         ))
     fig.update_layout(map=dict(style=MAP_STYLE, center=FOCUS_CENTER, zoom=8.4), margin=dict(l=0, r=0, t=8, b=0),
@@ -177,11 +200,18 @@ def build_map(cells: pd.DataFrame, title: str, unit: str, cscale: str, crange: t
     return ui.style_fig(fig, height=620, legend_bottom=False)
 
 
-def with_geometry(values: pd.DataFrame, effort: pd.DataFrame) -> pd.DataFrame:
+def with_geometry(values: pd.DataFrame, effort: pd.DataFrame, keep_observed_water: bool = True) -> pd.DataFrame:
+    """Join values and effort to cell centres. Water cells (water_frac > 0.5) are hidden, except, when
+    keep_observed_water is set, those with real checklists (coastal wetlands): their observations are kept on the
+    map and flagged, because the bird model leaves them out."""
     cells = effort.merge(values, on="cell_id", how="left")
     cells = cells.merge(ld.cell_centers(cells["cell_id"]), on="cell_id")
+    cells["water"] = cells["cell_id"].isin(water) if water is not None else False
     if water is not None:
-        cells = cells[~cells["cell_id"].isin(water)]
+        keep = ~cells["water"] | (keep_observed_water & ~cells["is_gap"])
+        cells = cells[keep]
+    cells["label"] = np.where(cells["water"], cells["cell_id"] + " (mostly water: excluded from the bird model)",
+                              cells["cell_id"])
     return cells
 
 
@@ -201,9 +231,9 @@ if mode == "effort":
     fig.update_traces(selector=dict(name="Birding effort"),
                       marker_colorbar=dict(tickvals=np.log10(tick), ticktext=[f"{t:,}" for t in tick],
                                            title=dict(text="checklists", side="right")))
-    map_title, map_src = f"Complete checklists per cell, {FIRST_YEAR}–{LAST_YEAR}", effort_src
+    map_title, map_src = f"Checklists per cell, {FIRST_YEAR}–{LAST_YEAR}", effort_src
     legend_items.append(("#21918c", "Checklists per cell", "Colour shows how many complete checklists, log scale."))
-    source_line = "Source: eBird Basic Dataset, Cornell Lab of Ornithology, cleaned by Member 1."
+    source_line = "Source: eBird Basic Dataset, Cornell Lab of Ornithology."
 elif mode == "rate":
     sel = rates[(rates["group"] == group) & (rates["period"] == period)]
     y0, y1 = (int(x) for x in period.split("-"))
@@ -211,7 +241,7 @@ elif mode == "rate":
     cells = with_geometry(sel[["cell_id", "reporting_rate"]].rename(columns={"reporting_rate": "value"}), eff)
     fig = build_map(cells, "Reporting rate", "share reported", "Viridis", range_of(cells["value"]),
                     rated_only=True, show_gaps=True)
-    map_title = f"How often light-{group.lower()} focus species were reported, {period.replace('-', '–')}"
+    map_title = f"Light-{group.lower()} reporting rate, {period.replace('-', '–')}"
     map_src = SRC.get(ld.status("cell_rates.parquet"))
     legend_items.append(("#21918c", "Reporting rate", "Share of focus-species detections on complete checklists. "
                                                        "Cells with 5 or more checklists in the period only."))
@@ -226,13 +256,13 @@ else:
     else:
         eff = ld.effort_by_cell((year, year))
         vals = ga[ga["year"] == year][["cell_id", gvar]].rename(columns={gvar: "value"})
-        cells = with_geometry(vals, eff)
-        if satellite_src == "mock":  # the mock grid covers a small window only
+        cells = with_geometry(vals, eff, keep_observed_water=False)
+        if ld.is_backup("grid_annual.parquet"):  # the backup grid covers a small window only
             cells = cells[cells["value"].notna() | cells["is_gap"].eq(False)]
         fig = build_map(cells, meta["label"], meta["unit"], meta["colorscale"], range_of(cells["value"]),
                         rated_only=False, show_gaps=show_gaps)
     legend_items.append((ui.PALETTE["accent"], "Satellite value", f"{meta['source']}, yearly mean per cell."))
-    source_line = f"Source: {meta['source']} via Google Earth Engine (Member 2)."
+    source_line = f"Source: {meta['source']} via Google Earth Engine."
 
 legend_items.append((GAP_COLOR, GAP_LABEL, "No complete checklist. Not the same as zero birds."))
 legend_items.append(("ring", LOW_DATA_LABEL, "1 to 4 checklists over 2014–2025. Outlined, never given a rate."))
@@ -241,7 +271,7 @@ ui.section("The focus map", sub=map_title, source=map_src, container=map_heading
 c_map, c_side = st.columns([3, 1], gap="medium")
 with c_map:
     if fig is None:
-        ui.alert("Pending: satellite covariates per cell come from Member 2.", kind="pending")
+        ui.alert("Satellite values per cell are not available right now.", kind="pending")
     else:
         st.plotly_chart(fig, width="stretch", config=ui.MAP_CONFIG)
     st.caption(source_line)
@@ -254,7 +284,13 @@ with c_side:
         gap_note = (f"Why gaps stay blank: unobserved cells cluster in space (Moran's I = {r['moran_i']:.2f}, "
                     f"p ≤ {r['p_sim']:.3f}), so missing data is not random.{scope}")
     if water is None:
-        gap_note = (gap_note + " " if gap_note else "") + "Water cells are not hidden yet; that needs Member 2's water mask."
+        gap_note = (gap_note + " " if gap_note else "") + "Water cells are not marked in this data."
+    elif mode != "cov":
+        gap_note = (gap_note + " " if gap_note else "") + (
+            "Open water is hidden. Mostly-water cells with checklists, such as the Las Piñas–Parañaque wetlands, stay "
+            "on the map because people birded there, but the bird model leaves them out.")
+    else:
+        gap_note = (gap_note + " " if gap_note else "") + "Mostly-water cells are hidden in this view."
     ui.legend("Legend", legend_items, note=gap_note)
     if not focus.empty:
         rows = []
@@ -263,16 +299,15 @@ with c_side:
             names = ", ".join(top["species"].astype(str))
             rows.append((ui.PALETTE["accent"] if g == "Sensitive" else ui.PALETTE["muted"],
                          f"Light-{g.lower()}: {names}", None))
-        ui.legend("Most reported focus species", rows, note=f"Source: species list from Member 1 ({n_sens + n_tol} focus species).")
+        ui.legend("Most reported focus species", rows, note=f"Source: eBird species list, {n_sens + n_tol} focus species.")
 
 # ---------------------------------------------------------------- model results
 c_eff, c_mod = st.columns([3, 2], gap="medium")
 with c_eff:
     ec_status = ld.status("effect_curve.parquet")
-    ui.section("Detection and night light", source={"real": "model", "mock": "mock"}.get(ec_status, "pending"))
+    ui.section("Detection and night light", source="model" if ec_status == "real" else None)
     if not ld.available("effect_curve.parquet"):
-        ui.alert("Pending: the effect curve comes from the night-light model, which needs Member 2's satellite "
-                 "covariates.", kind="pending")
+        ui.alert("The effect curve is not available right now.", kind="pending")
     else:
         ec = ld.effect_curve()
         efig = go.Figure()
@@ -287,7 +322,9 @@ with c_eff:
                              name=f"Light-{key.lower()} species",
                              hovertemplate="%{x:.3g} nW/cm²/sr: %{y:.0%}<extra>" + key + "</extra>")
         efig.update_layout(margin=dict(l=0, r=0, t=16, b=0), xaxis_title="Night-time light (nW/cm²/sr)",
-                           yaxis_title="Detection probability", yaxis=dict(range=[0, 1], tickformat=".0%"))
+                           yaxis_title="Detection probability",
+                           # start at zero but fit the data (predictions run about 2-19%), so the lines are not flattened
+                           yaxis=dict(range=[0, float(ec["ci_high"].max()) * 1.1], tickformat=".0%"))
         ui.style_fig(efig, height=400)
         st.plotly_chart(efig, width="stretch")
         st.caption("Predicted for a standard checklist (60 min, 1 km, 1 observer, 07:00). Bands: 95% confidence.")
@@ -295,26 +332,35 @@ with c_eff:
 with c_mod:
     coefs = ld.model_coefficients()
     kind = coefs[1] if coefs else None
-    src = "pending"
+    src = None
     if coefs:
-        src = "mock" if (ld.is_mock("model_coefficients.csv") and kind == "full") else "model"
+        src = None if (ld.is_backup("model_coefficients.csv") and kind == "full") else "model"
     ui.section("Model results", sub="baseline, before satellite covariates" if kind == "baseline" else None, source=src)
     if not coefs:
-        ui.alert("Pending: model coefficients from Member 3.", kind="pending")
+        ui.alert("Model coefficients are not available right now.", kind="pending")
     else:
         co = coefs[0].copy()
         co = co[co["term"] != "Intercept"]
         co["what"] = [term_label(t, lab) for t, lab in zip(co["term"], co.get("label", [None] * len(co)))]
-        key_terms = ["z_log_alan:sensitive", "z_alan:sensitive", "z_log_alan", "z_alan", "sensitive", "year_c",
-                     "year_c:sensitive"]
+        key_terms = ["z_log_alan (sensitive)", "z_log_alan", "z_alan", "z_log_alan:sensitive", "z_alan:sensitive",
+                     "sensitive", "year_c", "year_c:sensitive"]
+        tile_names = {"z_log_alan (sensitive)": "Light-sensitive species", "z_log_alan": "Light-tolerant species",
+                      "z_alan": "Light-tolerant species", "z_log_alan:sensitive": "Difference between the groups",
+                      "z_alan:sensitive": "Difference between the groups"}
         tiles = []
         for t in key_terms:
             r = co[co["term"] == t]
             if len(r) and len(tiles) < 3:
                 r = r.iloc[0]
-                tiles.append(ui.stat_html(r["what"], f"{r['odds_ratio']:.2f}×",
-                                          desc=f"as likely to be reported (95% CI {r['ci_low']:.2f}–{r['ci_high']:.2f}, "
-                                               f"{p_txt(r['p_value'])})", accent="alan" in t))
+                ci = f"95% CI {r['ci_low']:.2f}–{r['ci_high']:.2f}, {p_txt(r['p_value'])}"
+                if t.endswith(":sensitive"):
+                    desc = f"how much stronger the light effect is for sensitive species ({ci})"
+                elif t in tile_names:
+                    desc = f"as likely to be reported per 1 SD more night light ({ci})"
+                else:
+                    desc = f"as likely to be reported ({ci})"
+                tiles.append(ui.stat_html(tile_names.get(t, r["what"]), f"{r['odds_ratio']:.2f}×", desc=desc,
+                                          accent=t == "z_log_alan (sensitive)"))
         if tiles:
             ui.stats_row(tiles)
         co["order"] = [0 if t in key_terms else (2 if t.startswith("C(month)") else 1) for t in co["term"]]
@@ -331,9 +377,19 @@ with c_mod:
             notes.append("This baseline has no night-light term yet, so it cannot answer the light question.")
         if sc is not None and (sc["test"].astype(str).str.startswith("residuals")).any():
             r = sc[sc["test"].astype(str).str.startswith("residuals")].iloc[0]
-            if r["p_sim"] <= 0.05:
+            if r["p_sim"] <= 0.05 and kind == "full":
+                notes.append(f"Model residuals still cluster in space (Moran's I = {r['moran_i']:.2f}); with larger "
+                             "5×5-cell block clusters the difference between the groups still has p ≤ 0.001 "
+                             "(findings.md).")
+            elif r["p_sim"] <= 0.05:
                 notes.append(f"Model residuals still cluster in space (Moran's I = {r['moran_i']:.2f}), so these "
-                             "p-values may be too small; the plan calls for a refit with larger spatial blocks.")
+                             "p-values may be too small.")
+        rb = ld.robustness()
+        if rb is not None and kind == "full" and len(rb) > 1:
+            refits = rb.iloc[1:]
+            held = refits[(refits["interaction_or"] < 1) & (refits["p_value"] < 0.001)]
+            notes.append(f"The difference keeps its direction with p < 0.001 in {len(held)} of {len(refits)} refits: "
+                         + ", ".join(refits["variant"].astype(str).str.replace("<=", "≤", regex=False)) + ".")
         st.caption(" ".join(notes))
 
 # ---------------------------------------------------------------- limitations, from findings.md when available

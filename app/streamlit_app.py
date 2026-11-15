@@ -7,7 +7,7 @@ import streamlit as st
 
 APP_DIR = Path(__file__).resolve().parent
 ROOT = APP_DIR.parent
-for p in (APP_DIR, ROOT / "src"):  # src/ holds Member 3's trends.py
+for p in (APP_DIR, ROOT / "src"):  # src/ holds trends.py
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
@@ -26,19 +26,16 @@ pages = [
 ]
 st.navigation(pages, position="top").run()
 
-# Data status: which hand-offs are real, partly in, or still mock.
-SOURCES = [
-    ("eBird checklists", "Member 1"),
-    ("NASA satellite tables", "Member 2"),
-    ("Trends and bird model", "Member 3"),
-]
-BADGES = {"real": ("real", "ok"), "partial": ("partly in", "accent"), "mock": ("mock", "warn"), "missing": ("missing", "danger")}
+# Data status: a green dot when a data group is fully real, yellow when a backup file is standing in.
+DOTS = {"real": ("ok", "Real data loaded"), "backup": ("warn", "Using backup data")}
 rows = []
-for label, owner in SOURCES:
-    text, tone = BADGES[ld.member_status(owner)]
-    rows.append(f'<div class="av-status"><span>{label}<br><small>from {owner}</small></span>{ui.badge(text, tone)}</div>')
+for group in ld.GROUPS:
+    tone, tip = DOTS[ld.group_status(group)]
+    rows.append(f'<div class="av-status"><span>{group}</span>'
+                f'<span class="av-dot {tone}" role="img" aria-label="{tip}" title="{tip}"></span></div>')
 with st.sidebar:
     st.divider()
     ui.section("Data status")
     st.markdown("".join(rows), unsafe_allow_html=True)
-    st.caption("Mock data only stands in until a member delivers. Each section on a page also says where its numbers come from.")
+    st.markdown('<div class="av-gloss"><span class="av-dot ok"></span> real data &nbsp; '
+                '<span class="av-dot warn"></span> backup data</div>', unsafe_allow_html=True)
