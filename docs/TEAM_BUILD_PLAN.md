@@ -265,6 +265,8 @@ ee.batch.Export.table.toDrive(table, 'province_alan', fileFormat='CSV',
 
 ## Member 3: statistics and modelling
 
+**Status:** Part A **done** (`src/trends.py`, 20 tests pass, matches `pymannkendall` exactly). Parts B and C are built in `notebooks/03_member3_bird_model.ipynb`: the baseline model, observed cell rates and Moran's I already run on Member 1's real data; the full light model, effect curve and robustness refits switch on automatically when Member 2's `grid_monthly` and `grid_landcover` exist (code path tested end to end with mock covariates). Remaining: `province_trends.parquet` (needs Member 2's province tables) and the full model.
+
 **Goal:** two deliverables. (A) A trend-test module the app calls live whenever a user changes a selection. (B) The bird model that tests whether light affects sensitive species more than tolerant ones. Start (A) right away with fake data; start (B) when Members 1 and 2 hand off.
 
 **Libraries:** `pandas`, `numpy`, `pymannkendall`, `statsmodels`, `scipy`, `matplotlib`, libpysal, esda.
@@ -291,24 +293,22 @@ ee.batch.Export.table.toDrive(table, 'province_alan', fileFormat='CSV',
    - Fewer than 3 full years in the window: return `direction = "window too short"` and no p-value. The app shows a warning.
 3. **Province significance map (`province_trends.parquet`).** Run `trend_summary` for every province and variable over the full window. Then correct for testing \~80 provinces at once with Benjamini–Hochberg FDR (`statsmodels.stats.multitest.multipletests(p, method='fdr_bh')`). Store `p_value`, `q_value`, `significant = q < 0.05`, `slope_per_year`, `change_pct`.
 
-### B. Bird model (`notebooks/bird_model.ipynb`)
+### B. Bird model (`notebooks/03_member3_bird_model.ipynb`)
 
 1. **Build the modelling table.** Join `detections` → `checklists` → `species` (traits) → `grid_monthly` on `cell_id, year, month`. Drop cells with `water_frac > 0.5`. Keep checklists with distance\_km ≤ 2 for the main model (≤ 5 km is a robustness check). Drop rows with a missing covariate and report how many. Gaps never enter: they have no checklists.
 2. **Map traits.** Turn `light_tolerance` into `sensitive` (1 = light-sensitive, 0 = tolerant) and `migratory_status` into `migrant` (0/1). Write the mapping table in the notebook. Fix the unmatched names Member 1 listed.
 3. **Thin the hotspots.** Per `cell_id × year × week`, keep at most 3 checklists at random (`random_state=42`). Do this at checklist level, before the species join. It stops La Mesa and the wetlands from dominating.
 4. **Prepare predictors.** Join land cover by `cell_id, year`. `log_alan = log1p(alan)`; z-score `log_alan, ndvi, lst_day, rain_mm, forest_frac, urban_frac`; `log_duration = log(duration_min)`; `year_c = year − 2019`.
 5. **Check collinearity.** Correlation matrix and VIF. If |r| > 0.7 between ALAN and NDVI (likely in a city), keep ALAN, drop NDVI from the bird model and say so in the findings. Urban share and ALAN will very likely be strongly correlated too: if |r| > 0.7, keep ALAN, leave `urban_frac` out, and use `forest_frac` as the habitat term.
-6. **Fit the model.** Clustered logistic regression (statsmodels GEE, the statistics method, unrelated to Earth Engine), clustered by cell:
+6. **Fit the model.** Logistic regression (binomial GLM) with **cluster-robust standard errors by cell** (repeat visits to one place are not independent). *As built:* the model is fitted on a table aggregated to checklist × trait group (`successes` = focus species of that group detected, `trials` = focus species in the group). Because every species in a group shares the same predictors on a checklist, this gives **exactly the same estimates** as one row per checklist × species (verified in the notebook: max coefficient difference 3×10⁻¹⁴) with about 60,000 rows instead of 3.4 million. This replaces the GEE in the original plan: same model, faster, standard inference.
 
 ```python
 import statsmodels.api as sm, statsmodels.formula.api as smf
-formula = ("detected ~ z_alan * sensitive + z_ndvi + z_lst + z_rain + z_forest"
-           " + log_duration + distance_km + n_observers"
-           " + hour_started + I(hour_started**2)"
+formula = ("successes + failures ~ z_log_alan * sensitive + z_forest_frac + z_lst_day + z_rain_mm"
+           " + log_duration + distance_km + n_observers + hour_started + hour2"
            " + C(month) + year_c * sensitive + migrant")
-m = smf.gee(formula, groups="cell_id", data=df,
-            family=sm.families.Binomial(),
-            cov_struct=sm.cov_struct.Exchangeable()).fit()
+m = smf.glm(formula, g, family=sm.families.Binomial()).fit(
+        cov_type="cluster", cov_kwds={"groups": pd.factorize(g["cell_id"])[0]})
 ```
 
 7. **Pull out the headline numbers.**
@@ -317,11 +317,11 @@ m = smf.gee(formula, groups="cell_id", data=df,
    - **The key test:** p-value of `z_alan:sensitive`. Small p = light affects the two groups differently.
    - Effort-corrected bird trend per group from `year_c` and `year_c:sensitive`.
 8. **Effect curve (`effect_curve.parquet`).** Predicted detection probability across ALAN from its 5th to 95th percentile, for sensitive vs tolerant. Hold the rest at a standard checklist: 60 min, 1 km, 1 observer, 07:00, other covariates at their median, averaged over months.
-9. **Observed rates for the map (`cell_rates.parquet`).** Per cell × group × period (2014–2019 vs 2020–2025): reporting rate = detections / checklists. Only cells with ≥ 5 checklists in that period. Observed data only, no model.
+9. **Observed rates for the map (`cell_rates.parquet`).** Per cell × group × period (2018–2021 vs 2022–2025, balanced; the original 2014–2019 split had too few early checklists): reporting rate = detections / checklists. Only cells with ≥ 5 checklists in that period. Observed data only, no model.
 10. **Robustness.** Refit (a) without thinning, (b) on resident species only, and (c) with checklists up to 5 km. Record whether the sign and significance of `z_alan:sensitive` hold.
 11. **Write `findings.md`.** The headline sentence, the key numbers, robustness, and caveats: association not causation, eBird detection is not abundance, results cover Greater Manila only.
 
-### C. Spatial checks with Moran's I (`notebooks/spatial_checks.ipynb`)
+### C. Spatial checks with Moran's I (`notebooks/03_member3_bird_model.ipynb`, section 8)
 
 Moran's I measures whether values cluster in space (nearby cells more alike than chance). It is used for three jobs. It is **never** used to turn gaps into zeros: it only describes values we have.
 
@@ -336,14 +336,14 @@ Moran's I measures whether values cluster in space (nearby cells more alike than
 
 **Checks (all must pass before handing off)**
 
-- [ ] Synthetic test: a monthly series with a known slope of +1 unit/year, seasonal cycle and noise. `trend_summary` recovers the slope within 10% and p < 0.05.
-- [ ] False-positive test: 200 pure-noise series with seasonality. About 5% (no more than 10%) come out significant.
-- [ ] A constant series returns "no significant trend" without crashing; a series with 30% NaN still runs.
-- [ ] A 2-year window returns "window too short".
-- [ ] `trend_summary` runs in under 1 second per call (the app calls it live).
+- [x] Synthetic test: a monthly series with a known slope of +1 unit/year, seasonal cycle and noise. `trend_summary` recovers the slope within 10% and p < 0.05.
+- [x] False-positive test: 200 pure-noise series with seasonality. About 5% (no more than 10%) come out significant.
+- [x] A constant series returns "no significant trend" without crashing; a series with 30% NaN still runs.
+- [x] A 2-year window returns "window too short".
+- [x] `trend_summary` runs in under 1 second per call (the app calls it live).
 - [ ] The model converges with no NaN coefficients. Row count and number of cells are reported.
-- [ ] Sanity: the `log_duration` coefficient is **positive** (longer checklists detect more birds). If not, something is wrong with the join.
-- [ ] Sanity: migrant species are detected more in October–March (check the month terms or raw rates).
+- [x] Sanity: the `log_duration` coefficient is **positive** (longer checklists detect more birds). If not, something is wrong with the join.
+- [x] Sanity: migrant species are detected more in October–March (check the month terms or raw rates).
 - [ ] Raw cross-check: reporting rate by ALAN quartile for each group points the same way as the model's effect curve.
 - [ ] VIF table and the trait mapping table are in the notebook.
 

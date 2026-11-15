@@ -1,0 +1,4 @@
+test,cells,scope,moran_i,p_sim
+gaps,17835,all cells (provisional: includes water),0.3079497491774017,0.001
+effort,1459,observed cells,0.22576206452224107,0.001
+residuals (baseline model),394,cells with >= 5 checklists,0.5249406278188584,0.001
