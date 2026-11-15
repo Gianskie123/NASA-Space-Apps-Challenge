@@ -119,6 +119,8 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid 
 /* data status rows */
 .av-status{display:flex; justify-content:space-between; align-items:center; gap:var(--space-2); margin:var(--space-2) 0; font-size:0.88rem; color:var(--color-ink);}
 .av-status small{color:var(--color-muted); font-size:var(--step--1);}
+.av-dot{display:inline-block; width:10px; height:10px; border-radius:50%; flex-shrink:0; vertical-align:middle;}
+.av-dot.ok{background:var(--color-ok);} .av-dot.warn{background:var(--color-warn);}
 
 /* sidebar wordmark */
 .av-brand-name{font-size:var(--step-2); font-weight:700; color:var(--color-ink); line-height:1.1;}
@@ -176,14 +178,11 @@ def page_header(title: str, subtitle: str = "") -> None:
     _md(f'<h1 class="av-page-title">{escape(title)}</h1>{sub}')
 
 
-# Where a section's numbers come from. Every data section carries one of these, so mock or pending
-# results are never mistaken for findings.
+# Where a section's numbers come from, shown next to its heading when the real data is loaded.
 SOURCES = {
     "satellite": ("NASA satellite data", "accent"),
     "observed": ("observed eBird data", "ok"),
     "model": ("model result", "accent"),
-    "mock": ("mock data, not a result", "warn"),
-    "pending": ("pending hand-off", ""),
 }
 
 
@@ -222,7 +221,7 @@ def insight(text: str, kicker: str | None = None, meta: str | None = None, conta
 
 
 def alert(text: str, kind: str = "info", container=None, html: bool = False) -> None:
-    """kind: info | warn | danger | pending (empty state, waiting for a hand-off)."""
+    """kind: info | warn | danger | pending (an empty state: the data is not available)."""
     _md(f'<div class="av-alert {kind}">{text if html else escape(text)}</div>', container)
 
 

@@ -1,0 +1,37 @@
+# Keeps the public Streamlit app awake through judging (TEAM_BUILD_PLAN.md, Member 4).
+# Setup after deploying: Settings > Secrets and variables > Actions > Variables > New repository variable,
+# name APP_URL, value https://<your-app>.streamlit.app. Then run it once by hand (Actions > Keep app awake >
+# Run workflow) and open the app afterwards to confirm it woke.
+# GitHub pauses scheduled workflows after 60 days without repository activity: make a small commit in early
+# January so this keeps running through Global Judging.
+name: Keep app awake
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"   # every 6 hours
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: true
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Playwright and Chromium
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.64.1
+          python -m playwright install --with-deps chromium
+      - name: Visit the app and wake it if asleep
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: python scripts/keep_alive.py

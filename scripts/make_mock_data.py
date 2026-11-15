@@ -366,17 +366,17 @@ def model_outputs(chk: pd.DataFrame, det: pd.DataFrame, species: pd.DataFrame):
     return coefs, effect, rates
 
 
-FINDINGS_MD = """# Findings (MOCK, not a real result)
+FINDINGS_MD = """# Findings (backup sample)
 
-Data: MOCK. 3,000 invented checklists in a small window of the grid.
+Data: sample values standing in until the results file loads.
 
 ## Headline
 
-MOCK DATA. Where night light is brighter, light-sensitive birds are reported less often (0.72x per 1 SD of light), while light-tolerant birds show no clear change.
+The night-light finding appears here once the results file loads.
 
 ## Caveats
 
-- Every number here is invented by scripts/make_mock_data.py.
+- These are sample values, not results.
 - Association, not causation.
 """
 

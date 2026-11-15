@@ -6,27 +6,27 @@ APP_NAME = "AviTrend PH"  # placeholder name, see TEAM_BUILD_PLAN.md
 VARIABLES = {
     "alan": {
         "label": "Night-time light (ALAN)", "unit": "nW/cm²/sr", "table": "monthly",
-        "colorscale": "Cividis", "source": "NASA Black Marble VNP46A2",
+        "colorscale": "Cividis", "source": "NASA Black Marble VNP46A2 (VIIRS)",
     },
     "ndvi": {
         "label": "Vegetation (NDVI)", "unit": "NDVI (unitless)", "table": "monthly",
-        "colorscale": "Greens", "source": "MODIS MOD13A1",
+        "colorscale": "Greens", "source": "MODIS MOD13A1.061 (NASA, Terra)",
     },
     "lst_day": {
         "label": "Land surface temperature (day)", "unit": "°C", "table": "monthly",
-        "colorscale": "YlOrRd", "source": "MODIS MOD11A2",
+        "colorscale": "YlOrRd", "source": "MODIS MOD11A2.061 (NASA, Terra)",
     },
     "rain_mm": {
         "label": "Rain", "unit": "mm/month", "table": "monthly",
-        "colorscale": "Blues", "source": "GPM IMERG V07",
+        "colorscale": "Blues", "source": "GPM IMERG V07 (NASA/JAXA), half-hourly summed to monthly",
     },
     "urban_frac": {
         "label": "Land cover: % urban", "unit": "share of area", "table": "landcover",
-        "colorscale": "Purples", "source": "Land cover (product TBC by Member 2)",
+        "colorscale": "Purples", "source": "MODIS MCD12Q1.061 land cover (NASA), LC_Type1",
     },
     "forest_frac": {
         "label": "Land cover: % forest", "unit": "share of area", "table": "landcover",
-        "colorscale": "Greens", "source": "Land cover (product TBC by Member 2)",
+        "colorscale": "Greens", "source": "MODIS MCD12Q1.061 land cover (NASA), LC_Type1",
     },
 }
 
@@ -34,10 +34,10 @@ VARIABLES = {
 GRID_VARIABLES = ["alan", "ndvi", "lst_day", "rain_mm"]
 
 FOCUS_AREA_LABEL = "Greater Manila focus area"
-# Provinces inside the bird focus box (14.00-15.30 N, 120.50-121.60 E).
-# Until Member 2 provides a dedicated focus-area series, the app averages these.
+# Provinces inside the bird focus box (14.00-15.30 N, 120.50-121.60 E); the app averages them for the
+# focus-area series. GAUL 2025 names Metro Manila "National Capital Region"; the backup file uses the old name.
 FOCUS_PROVINCES = [
-    "Metropolitan Manila", "Bulacan", "Pampanga", "Cavite", "Laguna", "Rizal", "Bataan",
+    "National Capital Region", "Metropolitan Manila", "Bulacan", "Pampanga", "Cavite", "Laguna", "Rizal", "Bataan",
 ]
 FOCUS_CENTER = {"lat": 14.65, "lon": 121.05}
 

@@ -13,21 +13,40 @@ ui.page_header("About the data", "Where the numbers come from, how we tested the
 ui.section("Datasets")
 EE = "https://developers.google.com/earth-engine/datasets/catalog/"
 DATASETS = [
-    ("Black Marble VNP46A2", EE + "NASA_VIIRS_002_VNP46A2", "NASA, VIIRS",
-     "Monthly median night-time light (nW/cm²/sr) from good-quality days."),
-    ("MODIS MOD13A1 NDVI", EE + "MODIS_061_MOD13A1", "NASA, MODIS Terra", "Monthly mean vegetation index."),
-    ("MODIS MOD11A2 LST", EE + "MODIS_061_MOD11A2", "NASA, MODIS Terra",
-     "Monthly mean daytime land surface temperature (°C)."),
-    ("GPM IMERG Monthly V07", EE + "NASA_GPM_L3_IMERG_MONTHLY_V07", "NASA and JAXA, GPM", "Monthly rainfall (mm/month)."),
-    ("Land cover", None, "product to be confirmed by Member 2",
-     "Yearly share of urban, forest, cropland and other classes."),
+    ("NASA Black Marble VNP46A2", EE + "NASA_VIIRS_002_VNP46A2", "NASA, VIIRS, NASA/VIIRS/002/VNP46A2",
+     "Night-time light: band DNB_BRDF_Corrected_NTL, days with quality flag 0 or 1, monthly median (nW/cm²/sr)."),
+    ("MODIS MOD13A1.061", EE + "MODIS_061_MOD13A1", "NASA, MODIS Terra, MODIS/061/MOD13A1",
+     "Terra Vegetation Indices: NDVI from good-quality 16-day composites, monthly mean."),
+    ("MODIS MOD11A2.061", EE + "MODIS_061_MOD11A2", "NASA, MODIS Terra, MODIS/061/MOD11A2",
+     "Terra Land Surface Temperature: daytime values from good-quality 8-day composites, monthly mean (°C)."),
+    ("GPM IMERG Release 07", EE + "NASA_GPM_L3_IMERG_V07", "NASA and JAXA, NASA/GPM_L3/IMERG_V07",
+     "Rainfall: half-hourly estimates summed to monthly totals (mm/month)."),
+    ("MODIS MCD12Q1.061", EE + "MODIS_061_MCD12Q1", "NASA, MODIS, MODIS/061/MCD12Q1",
+     "Yearly land cover (LC_Type1), turned into the share of each area that is urban, forest, cropland, "
+     "grass and shrub, wetland or water."),
     ("eBird Basic Dataset", "https://science.ebird.org/en/use-ebird-data/download-ebird-data-products",
      "Cornell Lab of Ornithology", "Complete birdwatcher checklists for Greater Manila, 2014–2025."),
-    ("FAO GAUL 2015 level 2", EE + "FAO_GAUL_2015_level2", "FAO", "Province boundaries."),
-    ("JRC Global Surface Water", EE + "JRC_GSW1_4_GlobalSurfaceWater", "EC JRC",
-     "Masks water cells (Manila Bay, Laguna de Bay)."),
+    ("FAO GAUL 2025, level 2", EE + "FAO_GAUL_2025_level2", "FAO, FAO/GAUL/2025/level2",
+     "Province boundaries (85 areas)."),
+    ("JRC Global Surface Water v1.4", EE + "JRC_GSW1_4_GlobalSurfaceWater", "EC JRC, JRC/GSW1_4/GlobalSurfaceWater",
+     "Marks cells that are mostly water (Manila Bay, Laguna de Bay)."),
 ]
 st.markdown('<div class="av-legend">' + "".join(ui.dataset(*d) for d in DATASETS) + "</div>", unsafe_allow_html=True)
+ui.gloss("All satellite products were processed with the Google Earth Engine Python API.")
+
+ui.section("Data choices worth knowing")
+st.markdown("""
+- **Newer boundaries.** Provinces use FAO GAUL 2025, which replaced the deprecated GAUL 2015 named in the plan.
+  Metro Manila appears as a single area, the National Capital Region.
+- **Rainfall from half-hourly data.** The monthly IMERG V07 collection did not reach December 2025 when the data
+  was extracted, so half-hourly IMERG V07 was summed to months instead.
+- **Land cover stops at 2024.** MCD12Q1's latest map is 2024, so the 2025 rows repeat the 2024 shares.
+- **Cloudy months stay missing.** A month is left blank when fewer than 30% of its pixels are usable. Across the
+  Greater Manila grid that blanks about 38% of vegetation and 24% of land temperature values (under 3% at
+  province level); night light and rain are nearly complete.
+- **Small quality artefacts are kept, not hidden.** About 0.06% of land temperature values are below 15 °C, a
+  known MODIS quality artefact, and land-cover shares sum to about 0.99 rather than exactly 1.
+""")
 
 ui.section("Method in six steps")
 st.markdown("".join([
@@ -59,6 +78,9 @@ st.markdown("""
 - **Observation gaps.** Most cells have no birdwatcher. They are never treated as zero birds and never filled in.
 - **Uneven years.** 88% of checklists are from 2020–2025, so early years carry little weight.
 - **Cloud gaps.** Optical satellites cannot see through cloud, so vegetation and land temperature miss more monsoon months.
+- **Land temperature drifts after 2020.** MODIS Terra's overpass time drifts earlier, so daytime land temperature reads cooler from 2021 onward; the falling trend seen in every province is likely partly an instrument artefact.
+- **The light effect is concentrated in resident species.** Migratory light-sensitive and light-tolerant species respond alike.
+- **Wetland hotspots sit outside the main model.** Cells that are more than half water are left out, which removes the Las Piñas–Parañaque, Tanza, Paombong and Balanga sites; a refit that keeps them gives the same result.
 - **Association, not causation.** The model shows where light and bird reports go together, not that light causes it.
 - **Detection, not abundance.** eBird records whether a species was reported, not how many birds live there.
 - **Night birds are under-sampled.** Daytime birding misses many nocturnal species, which may be the most affected by light.
@@ -69,11 +91,18 @@ st.markdown("""
 ui.section("References")
 refs = ROOT / "REFERENCES.md"
 if refs.exists():
-    st.markdown(refs.read_text())
+    # Rendered as plain Markdown (no raw HTML). The file's own title is dropped and its headings shifted down a
+    # level so they sit under this section; its AI assistance section covers the disclosure.
+    lines = refs.read_text(encoding="utf-8").splitlines()
+    body = "\n".join("#" + ln if ln.startswith("## ") else ln for ln in lines if not ln.startswith("# "))
+    st.markdown(body)
 else:
-    ui.alert("REFERENCES.md is not in the repo yet. Every dataset, library and AI tool the team uses will be listed here.",
-             kind="pending")
-
-ui.section("AI assistance")
-st.markdown("AI tools were used to help write parts of the code and text. Every use is listed under **AI assistance** in "
-            "REFERENCES.md. The idea, the analysis choices and the checks are the team's own.")
+    st.markdown("""
+- Google Earth Engine Python API. Google for Developers.
+- Datasets: every product listed under Datasets above, with its Earth Engine catalog ID.
+- eBird Basic Dataset. Cornell Lab of Ornithology, Ithaca, New York.
+- Software: Streamlit, Plotly, pandas, NumPy, SciPy and PyArrow.
+""")
+    ui.section("AI assistance")
+    st.markdown("AI tools helped with parts of the code and text; the idea, analysis choices and checks are the team's "
+                "own. OpenAI Codex and Claude were used; see REFERENCES.md.")
