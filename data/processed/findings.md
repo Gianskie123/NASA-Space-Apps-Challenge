@@ -4,7 +4,7 @@ Data: 12,953 eBird checklists (≤ 2 km, thinned) in 1,136 cells of Greater Mani
 
 ## Headline
 
-Per 1 SD more night-time light, the odds of detecting a light-sensitive species change by ×0.53 (95% CI 0.47–0.59), versus ×0.88 (0.82–0.95) for light-tolerant species. Difference between groups: p ≤ 0.001. Model residuals are spatially clustered, so with larger 5×5-cell block clusters the difference has p ≤ 0.001; this is the cautious figure to quote.
+Per 1 SD more night-time light (about 3× brighter), the odds of detecting a light-sensitive species change by ×0.53 (95% CI 0.47–0.59), versus ×0.88 (0.82–0.95) for light-tolerant species. Difference between groups: p ≤ 0.001 (CIs and p-values clustered by cell). The difference comes from resident species: ×0.35 for resident light-sensitive vs ×0.89 for resident light-tolerant species (p ≤ 0.001), while migratory light-sensitive and light-tolerant species respond alike (×0.74 vs ×0.77, p = 0.700). Model residuals are spatially clustered, so with larger 5×5-cell block clusters the difference has p ≤ 0.001; this is the cautious figure to quote.
 
 ## Sample
 
@@ -38,8 +38,8 @@ incl. water-heavy cells           -0.4990          0.6071 5.2e-26         13679
 
 - gaps: I = 0.285, p ≤ 0.001 (13,279 cells, land cells only)
 - effort: I = 0.231, p ≤ 0.001 (1,268 cells, observed cells)
-- residuals (baseline model): I = 0.307, p ≤ 0.001 (321 cells, cells with >= 5 checklists)
 - residuals (full model): I = 0.215, p ≤ 0.001 (321 cells, cells with >= 5 checklists)
+- residuals (baseline model): I = 0.307, p ≤ 0.001 (321 cells, cells with >= 5 checklists)
 
 For the app and slides:
 
@@ -51,7 +51,7 @@ For the app and slides:
 - Association, not causation.
 - eBird detection is not abundance; effort (duration, distance, observers, time of day) is modelled.
 - Results cover Greater Manila only. 88% of checklists are from 2020–2025.
-- Cells more than 50% water are left out of the main model (their satellite values describe the bay); this removes the main wetland and mudflat hotspots, so a refit that keeps them is in the robustness table.
+- Cells more than 50% water are left out of the main model (their satellite values describe the bay); this removes the main wetland and mudflat hotspots. A refit that keeps water-heavy cells only partly restores them (many lack land-temperature values) and gives the same result (robustness table).
 - Daytime land temperature (MODIS Terra) falls after 2020 almost everywhere; this most likely reflects Terra's drifting, earlier overpass time rather than real cooling, so LST trends after 2020 should be read with care. A refit without LST is in the robustness table.
 - Nocturnal species, potentially the most affected by light, are under-sampled by daytime birding and mostly fall below the focus threshold, so effects are likely underestimated.
 - Observation gaps are never filled; statistics use real checklists only.

@@ -1,5 +1,5 @@
 test,cells,scope,moran_i,p_sim
 gaps,13279,land cells only,0.28506466338558734,0.001
 effort,1268,observed cells,0.23072483179481518,0.001
-residuals (baseline model),321,cells with >= 5 checklists,0.30739398175222404,0.001
 residuals (full model),321,cells with >= 5 checklists,0.2150647782486711,0.001
+residuals (baseline model),321,cells with >= 5 checklists,0.30739398175222404,0.001
