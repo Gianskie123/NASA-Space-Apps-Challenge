@@ -12,8 +12,8 @@ ui.page_header("How we know", "Where the numbers come from, how we tested them, 
 
 ui.section("In short")
 ui.numbered([
-    ("Satellites, not guesses", "Four free NASA satellite datasets measure night light, greenery, ground "
-     "temperature and rain every month from 2014 to 2025, for every province."),
+    ("Satellites, not guesses", "Five free NASA satellite datasets measure night light, greenery, ground "
+     "temperature and rain every month, and land cover every year, from 2014 to 2025, for every province."),
     ("A change only counts if it is steady", "We use standard trend tests that ignore the normal wet and dry seasons "
      "and only call a change real when it is very unlikely to be chance."),
     ("Real birdwatching records", "Bird results use only complete checklists from eBird, where birdwatchers report "
@@ -46,7 +46,7 @@ ui.gloss("All satellite products were processed with the Google Earth Engine Pyt
 
 ui.section("Data choices worth knowing")
 st.markdown("""
-- **Newer boundaries.** Provinces use FAO GAUL 2025, which replaced the deprecated GAUL 2015 named in the plan.
+- **Newer boundaries.** Provinces use FAO GAUL 2025, which replaced the older, retired GAUL 2015.
   Metro Manila appears as a single area, the National Capital Region.
 - **Rainfall from half-hourly data.** The monthly IMERG V07 collection did not reach December 2025 when the data
   was extracted, so half-hourly IMERG V07 was summed to months instead.
@@ -104,8 +104,9 @@ if refs.exists():
     # Rendered as plain Markdown (no raw HTML). The file's own title is dropped and its headings shifted down a
     # level so they sit under this section; its AI assistance section covers the disclosure.
     lines = refs.read_text(encoding="utf-8").splitlines()
-    body = "\n".join("#" + ln if ln.startswith("## ") else ln for ln in lines if not ln.startswith("# "))
-    st.markdown(body)
+    body = "\n".join("###" + ln if ln.startswith("#") else ln for ln in lines if not ln.startswith("# "))
+    with st.expander("Full list of references, software and AI assistance"):
+        st.markdown(body)
 else:
     st.markdown("""
 - Google Earth Engine Python API. Google for Developers.

@@ -37,9 +37,14 @@ def test_confidence_words():
 
 
 def test_change_phrase_percent_and_times():
-    assert plain.change_phrase("alan", {"change_pct": 32.9, "change_total": 3.1}, "2014") == "about 33% higher than in 2014"
+    assert plain.change_phrase("alan", {"change_pct": 32.9, "change_total": 3.1}, "2014") == "about 33% brighter than in 2014"
     assert plain.change_phrase("alan", {"change_pct": 124.6, "change_total": 1.9}, "2014") == "about 2.2× the 2014 level"
-    assert plain.change_phrase("ndvi", {"change_pct": -4.2, "change_total": -0.03}, "2014") == "about 4% lower than in 2014"
+    assert plain.change_phrase("ndvi", {"change_pct": -4.2, "change_total": -0.03}, "2014") == "about 4% less green than in 2014"
+
+
+def test_change_phrase_rain_and_small_changes():
+    assert plain.change_phrase("rain_mm", {"change_pct": 21.3, "change_total": 40}, "2014") == "about 21% wetter than in 2014"
+    assert plain.change_phrase("alan", {"change_pct": 0.4, "change_total": 0.1}, "2014") == "less than 1% brighter than in 2014"
 
 
 def test_change_phrase_land_cover_uses_percentage_points():

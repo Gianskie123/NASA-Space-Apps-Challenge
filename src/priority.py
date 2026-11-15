@@ -23,6 +23,11 @@ def clean_locality(name) -> str:
     """Readable place name from an eBird locality: drop coordinates in brackets, 'PH--' prefixes and ', PH'."""
     if not isinstance(name, str):
         return ""
+    if "Ã" in name:  # UTF-8 text that was read as Latin-1 somewhere upstream ("BaÃ±os" -> "Baños")
+        try:
+            name = name.encode("latin-1").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            pass
     s = re.sub(r"\s*\([^)]*\d[^)]*\)", "", name)
     s = re.sub(r"^ph--", "", s, flags=re.IGNORECASE)
     s = re.sub(r"\s+PH-(\w[\w ]*)", r", \1", s)
@@ -51,10 +56,15 @@ def build_priority(grid_annual: pd.DataFrame, cell_rates: pd.DataFrame, checklis
     out = present.join(early).join(late)
     out["ratio"] = (out["light_late"] + OFFSET) / (out["light_early"] + OFFSET)
 
-    if "locality" in checklists.columns:
-        loc = (checklists.dropna(subset=["locality"]).groupby("cell_id")["locality"]
-               .agg(lambda v: v.value_counts().index[0]))
+    # Names: public eBird hotspots only (locality_type "H"). Personal locations can be private homes, so they
+    # are never shown; a cell with no hotspot gets no name.
+    ck = checklists.dropna(subset=["locality"])
+    if "locality_type" in ck.columns:
+        ck = ck[ck["locality_type"] == "H"]
+    if "locality" in ck.columns and len(ck):
+        loc = ck.groupby("cell_id")["locality"].agg(lambda v: v.value_counts().index[0])
         out = out.join(loc.map(clean_locality).rename("locality"))
+        out["locality"] = out["locality"].astype(object).where(out["locality"].notna(), None)
     else:
         out["locality"] = None
     out["priority"] = (out["ratio"] >= min_ratio).fillna(False).astype(bool)
@@ -66,7 +76,7 @@ def build_priority(grid_annual: pd.DataFrame, cell_rates: pd.DataFrame, checklis
 def main() -> pd.DataFrame:
     ga = pd.read_parquet(PROC / "grid_annual.parquet", columns=["cell_id", "year", "alan"])
     rates = pd.read_parquet(PROC / "cell_rates.parquet")
-    ck = pd.read_parquet(PROC / "checklists.parquet", columns=["cell_id", "locality"])
+    ck = pd.read_parquet(PROC / "checklists.parquet", columns=["cell_id", "locality", "locality_type"])
     out = build_priority(ga, rates, ck)
     out["n_checklists"] = out["n_checklists"].astype("int64")
     out.to_parquet(PROC / "priority_areas.parquet", index=False)

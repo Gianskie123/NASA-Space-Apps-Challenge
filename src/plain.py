@@ -72,9 +72,11 @@ def change_phrase(var: str, result: dict, start_label: str) -> str:
     ratio = 1 + pct / 100
     if ratio >= 2:
         return f"about {ratio:.1f}× the {start_label} level"
+    up, down = (w.lower() for w in short_words(var))
+    word = up if pct >= 0 else down
     if abs(pct) < 1:
-        return f"less than 1% {'higher' if pct >= 0 else 'lower'} than in {start_label}"
-    return f"about {abs(pct):.0f}% {'higher' if pct >= 0 else 'lower'} than in {start_label}"
+        return f"less than 1% {word} than in {start_label}"
+    return f"about {abs(pct):.0f}% {word} than in {start_label}"
 
 
 def _ends(curve: pd.DataFrame, sensitive: int) -> tuple[float, float]:
@@ -94,9 +96,10 @@ def bird_headline(curve: pd.DataFrame) -> dict:
     t_ratio = t_dark / t_bright if t_bright > 0 else float("inf")
     clear = bool(ratio >= 1.5 and ratio > t_ratio)
     if clear:
-        text = (f"In the brightest places, birds that need darkness are about {times_text(ratio)}× less likely to be "
-                f"seen than in the darkest places ({s_dark:.0%} → {s_bright:.0%} chance on a typical one-hour "
-                f"birdwatch). Birds that tolerate light change much less ({t_dark:.0%} → {t_bright:.0%}).")
+        text = (f"Around Manila, a typical bird that needs darkness is about {times_text(ratio)}× less likely to be "
+                f"recorded in the brightest places than in the darkest ({s_dark:.0%} → {s_bright:.0%} chance on a "
+                f"one-hour birdwatch). A typical bird that tolerates light changes much less "
+                f"({t_dark:.0%} → {t_bright:.0%}).")
     else:
         text = ("Birds that need darkness and birds that tolerate light respond to night light in much the same "
                 "way: no clear difference at this scale.")

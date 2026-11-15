@@ -19,7 +19,7 @@ import load_data as ld
 import plain
 import trend_bridge
 import ui
-from config import FOCUS_AREA_LABEL, MAP_STYLE, PH_CENTER, PH_ZOOM, VARIABLES
+from config import FOCUS_AREA_LABEL, MAP_STYLE, METRO_MANILA, PH_CENTER, PH_ZOOM, VARIABLES
 
 log = logging.getLogger(__name__)
 
@@ -83,7 +83,9 @@ with st.container(border=True):
     is_lc = meta["table"] == "landcover"
     df = charts.variable_table(var)
     provinces = sorted(df["province"].dropna().unique())
-    province = c_prov.selectbox("Where", [FOCUS_AREA_LABEL, *provinces], index=0, key="te_prov",
+    options = [*[p for p in METRO_MANILA if p in provinces], FOCUS_AREA_LABEL,
+               *[p for p in provinces if p not in METRO_MANILA]]
+    province = c_prov.selectbox("Where", options, index=0, key="te_prov",
                                 help="Type to search for a province.")
     years = sorted(df["year"].unique().astype(int))
     y0, y1 = c_years.select_slider("Years", options=years, value=(years[0], years[-1]), key="te_years")

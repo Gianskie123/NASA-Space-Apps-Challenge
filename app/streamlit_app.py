@@ -24,4 +24,10 @@ pages = [
     st.Page("views/birds_and_light.py", title="What it means for birds", icon=":material/flutter_dash:"),
     st.Page("views/about.py", title="How we know", icon=":material/menu_book:"),
 ]
-st.navigation(pages, position="top").run()
+nav = st.navigation(pages, position="top")
+# On phones Streamlit folds the top menu behind an icon; this row (shown only on small screens, see ui.py)
+# keeps every page one tap away.
+with st.container(key="mnav", horizontal=True):
+    for pg in pages:
+        st.page_link(pg)
+nav.run()

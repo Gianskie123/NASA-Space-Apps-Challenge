@@ -10,7 +10,7 @@ GITHUB_URL = "https://github.com/Gianskie123/NASA-Space-Apps-Challenge"
 VARIABLES = {
     "alan": {
         "plain": "Night-time light", "about": "how bright the ground looks from space at night",
-        "label": "Night-time light (ALAN)", "unit": "nW/cm²/sr", "plain_unit": "brightness (satellite units)", "table": "monthly",
+        "label": "Night-time light (ALAN)", "unit": "nW/cm²/sr", "plain_unit": "brightness (NASA Black Marble radiance)", "table": "monthly",
         "up": "#d98e04", "down": "#3d5a98", "colorscale": "Cividis",
         "source": "NASA Black Marble VNP46A2 (VIIRS)",
     },

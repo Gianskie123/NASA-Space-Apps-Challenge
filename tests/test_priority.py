@@ -25,8 +25,9 @@ def _inputs():
         "n_checklists": [6, 10, 8, 7, 9, 10],
         "reporting_rate": [0.02, 0.05, 0.03, 0.0, 0.04, 0.2],
     })
-    ck = pd.DataFrame({"cell_id": ["A", "A", "A", "B", "D"],
-                       "locality": ["La Mesa", "La Mesa", "Other", "Imus", "Tanay"]})
+    ck = pd.DataFrame({"cell_id": ["A", "A", "A", "B", "D", "D", "D"],
+                       "locality": ["La Mesa", "La Mesa", "Other", "Imus", "My Backyard", "My Backyard", "Tanay Park"],
+                       "locality_type": ["H", "H", "H", "P", "P", "P", "H"]})
     return ga, rates, ck
 
 
@@ -70,3 +71,14 @@ def test_clean_locality():
     assert c("Vermosa Sports Hub, Imus") == "Vermosa Sports Hub, Imus"
     assert c("LPPWP--Freedom Island") == "LPPWP, Freedom Island"
     assert c(None) == ""
+
+
+def test_only_public_hotspot_names():
+    out = priority.build_priority(*_inputs()).set_index("cell_id")
+    assert out.loc["D", "locality"] == "Tanay Park"        # hotspot preferred over a more common personal location
+    assert out.loc["B", "locality"] is None                # personal locations are never shown
+
+
+def test_clean_locality_repairs_garbled_accents():
+    assert priority.clean_locality("UP Los BaÃ±os, CA Agri Park") == "UP Los Baños, CA Agri Park"
+    assert priority.clean_locality("Las Piñas Wetland") == "Las Piñas Wetland"

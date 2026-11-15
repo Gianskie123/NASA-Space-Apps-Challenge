@@ -1,6 +1,6 @@
 # References
 
-Every dataset, library, method and tool used in AviTrend PH. The app's About page shows this file.
+Every dataset, library, method and tool used in AviTrend PH.
 
 ## NASA and other Earth observation data
 
@@ -15,7 +15,7 @@ All satellite products were processed with the Google Earth Engine Python API.
 - **FAO GAUL 2025**: Global Administrative Unit Layers, second-level administrative units. Google Earth Engine Data Catalog, `FAO/GAUL/2025/level2`. https://developers.google.com/earth-engine/datasets/catalog/FAO_GAUL_2025_level2
 - Google Earth Engine Python API. Google for Developers. https://developers.google.com/earth-engine/guides/python_install
 
-**Substitutions from the build plan:** GAUL 2025 replaced the deprecated GAUL 2015; half-hourly IMERG V07 replaced the monthly collection, which did not cover December 2025 at extraction time; MCD12Q1's latest map is 2024, so the 2025 rows repeat the 2024 shares (`lc_year_used = 2024`).
+**Data substitutions:** GAUL 2025 replaced the deprecated GAUL 2015; half-hourly IMERG V07 replaced the monthly collection, which did not cover December 2025 at extraction time; MCD12Q1's latest map is 2024, so the 2025 rows repeat the 2024 shares (`lc_year_used = 2024`).
 
 ## Bird data
 

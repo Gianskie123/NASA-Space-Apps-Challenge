@@ -31,7 +31,8 @@ def test_page_runs(page):
 def test_overview_shows_findings():
     at = run(PAGES[0])
     html = " ".join(m.value for m in at.markdown)
-    assert "provinces got clearly brighter" in html
+    assert "provinces got brighter at night" in html
+    assert "Around Manila" in html
     assert "less likely" in html
     assert "What this means for DENR-BMB" in html
 

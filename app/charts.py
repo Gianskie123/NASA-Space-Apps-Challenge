@@ -55,29 +55,54 @@ def to_annual(s: pd.Series) -> pd.Series:
 
 
 # ---------------------------------------------------------------- province change map
-def _diverging(var: str) -> list[list]:
-    m = VARIABLES[var]
-    return [[0.0, m["down"]], [0.5, NEUTRAL], [1.0, m["up"]]]
-
-
-def change_map(var: str, highlight: str | None = None, height: int = 560, zoom: float = PH_ZOOM) -> go.Figure | None:
-    """Every province coloured by its 2014-2025 trend; provinces without a clear trend are light grey."""
+def _province_table(var: str) -> pd.DataFrame | None:
     if not ld.available("province_trends.parquet"):
         return None
     pt = ld.province_trends()
     pt = pt[pt["variable"] == var].copy()
     if pt.empty:
         return None
+    # Colour by relative change (% of the starting level), so rural provinces that doubled are as visible as a
+    # city that grew by a large absolute amount. Land-cover shares use their slope (percentage points a year).
+    pt["colour_value"] = pt["slope_per_year"] * 100 if var in plain.SHARE_VARIABLES else pt["change_pct"]
+    pt["colour_value"] = pt["colour_value"].fillna(pt["slope_per_year"])
+    return pt
+
+
+def change_scale(var: str) -> dict | None:
+    """Colour range shared by the map and its legend: lim (90th percentile of significant changes), whether
+    any province rose or fell, and how to word the end values."""
+    pt = _province_table(var)
+    if pt is None:
+        return None
+    sig = pt[pt["significant"]]
+    lim = float(np.nanpercentile(np.abs(sig["colour_value"]), 90)) if len(sig) else 1.0
+    has_down = bool((sig["colour_value"] < 0).any())
+    has_up = bool((sig["colour_value"] > 0).any())
+    fmt = (lambda v: f"{v:.1f} points a year") if var in plain.SHARE_VARIABLES else (lambda v: f"{v:.0f}%")
+    return {"lim": lim or 1.0, "has_down": has_down, "has_up": has_up, "fmt": fmt}
+
+
+def _colorscale(var: str, sc: dict) -> tuple[list[list], float, float]:
+    m = VARIABLES[var]
+    if sc["has_down"] and sc["has_up"]:
+        return [[0.0, m["down"]], [0.5, NEUTRAL], [1.0, m["up"]]], -sc["lim"], sc["lim"]
+    if sc["has_down"]:
+        return [[0.0, m["down"]], [1.0, NEUTRAL]], -sc["lim"], 0.0
+    return [[0.0, NEUTRAL], [1.0, m["up"]]], 0.0, sc["lim"]
+
+
+def change_map(var: str, highlight: str | None = None, height: int = 560, zoom: float = PH_ZOOM) -> go.Figure | None:
+    """Every province coloured by its 2014-2025 trend; provinces without a clear trend are light grey."""
+    pt = _province_table(var)
+    if pt is None:
+        return None
+    sc = change_scale(var)
+    cscale, zmin, zmax = _colorscale(var, sc)
     geo = ld.provinces_geojson()
     pt["verdict"] = [plain.verdict(var, d, s) for d, s in zip(pt["direction"], pt["significant"])]
     pt["phrase"] = [plain.change_phrase(var, r, "2014") for r in pt.to_dict("records")]
-    # Colour by relative change (% of the starting level), so rural provinces that doubled are as visible as a
-    # city that grew by a large absolute amount. Land-cover shares use their slope (percentage points).
-    pt["colour_value"] = pt["slope_per_year"] if var in plain.SHARE_VARIABLES else pt["change_pct"]
-    pt["colour_value"] = pt["colour_value"].fillna(pt["slope_per_year"])
     sig = pt[pt["significant"]]
-    lim = float(np.nanpercentile(np.abs(sig["colour_value"]), 90)) if len(sig) else 1.0
-    lim = lim or 1.0
     fig = go.Figure()
     grey = pt[~pt["significant"]]
     if len(grey):
@@ -89,7 +114,7 @@ def change_map(var: str, highlight: str | None = None, height: int = 560, zoom: 
     if len(sig):
         fig.add_trace(go.Choroplethmap(
             geojson=geo, locations=sig["adm2_code"], featureidkey="properties.adm2_code",
-            z=sig["colour_value"].clip(-lim, lim), zmin=-lim, zmax=lim, colorscale=_diverging(var), showscale=False,
+            z=sig["colour_value"].clip(zmin, zmax), zmin=zmin, zmax=zmax, colorscale=cscale, showscale=False,
             marker_opacity=0.9, marker_line_width=0.5, marker_line_color="#ffffff",
             text=sig["province"], customdata=np.c_[sig["verdict"], sig["phrase"]],
             hovertemplate="<b>%{text}</b><br>%{customdata[0]}<br>%{customdata[1]}<extra></extra>"))
@@ -106,11 +131,22 @@ def change_map(var: str, highlight: str | None = None, height: int = 560, zoom: 
 
 
 def change_legend(var: str, container=None) -> None:
-    """Plain legend for change_map: '<down> ... <up>' strip plus the grey 'no clear change' swatch."""
+    """Plain legend for change_map with numbers at the ends, plus the grey 'no clear change' swatch."""
+    sc = change_scale(var)
+    if sc is None:
+        return
     up_word, down_word = plain.short_words(var)
-    m = VARIABLES[var]
-    ui.gradient_legend(down_word, up_word, [m["down"], NEUTRAL, m["up"]],
-                       extras=[(ui.PALETTE["neutral"], "No clear change")], container=container)
+    m, v = VARIABLES[var], sc["fmt"](sc["lim"])
+    extras = [(ui.PALETTE["neutral"], "No clear change")]
+    if sc["has_down"] and sc["has_up"]:
+        ui.gradient_legend(f"{down_word} (−{v} or more)", f"{up_word} (+{v} or more)", [m["down"], NEUTRAL, m["up"]],
+                           extras=extras, container=container)
+    elif sc["has_down"]:
+        ui.gradient_legend(f"{down_word}: −{v} or more", "small fall", [m["down"], NEUTRAL], extras=extras,
+                           container=container)
+    else:
+        ui.gradient_legend(f"{up_word}: small rise", f"+{v} or more", [NEUTRAL, m["up"]], extras=extras,
+                           container=container)
 
 
 def province_counts(var: str) -> dict | None:
@@ -149,10 +185,17 @@ def year_chart(s: pd.Series, var: str, result: dict | None, yearly_input: bool, 
         fig.add_scatter(x=line.index, y=line, mode="lines", name="Overall trend",
                         line=dict(width=3, color=color, dash="dash"), hoverinfo="skip")
     years = ys.index.year
-    fig.update_layout(margin=dict(l=0, r=10, t=10, b=0), yaxis_title=unit, hovermode="x unified",
-                      xaxis=dict(tickformat="%Y", dtick="M12" if len(ys) <= 13 else "M24",
-                                 range=[f"{years.min()}-01-01", f"{years.max()}-12-31"]))
-    return ui.style_fig(fig, height=340)
+    step = 1 if len(ys) <= 8 else 2
+    if var == "alan" and 2020 in set(years):
+        fig.add_annotation(x=pd.Timestamp("2020-07-01"), y=float(values.loc[values.index.year == 2020].iloc[0]),
+                           text="2020: COVID lockdown", showarrow=True, arrowhead=0, ax=0, ay=36,
+                           font=dict(size=12, color=ui.PALETTE["muted"]), arrowcolor=ui.PALETTE["muted"])
+    fig.update_layout(margin=dict(l=0, r=10, t=36, b=44), yaxis_title=unit, hovermode="x unified",
+                      legend=dict(orientation="h", x=0, y=1.02, yanchor="bottom", bgcolor="rgba(0,0,0,0)",
+                                  font=dict(color=ui.PALETTE["ink2"])),
+                      xaxis=dict(tickvals=list(ys.index[::step]), ticktext=[str(y) for y in years[::step]],
+                                 tickangle=0, range=[f"{years.min()}-01-01", f"{years.max()}-12-31"]))
+    return ui.style_fig(fig, height=360, legend_bottom=False)
 
 
 # ---------------------------------------------------------------- birds
@@ -169,13 +212,14 @@ def effect_chart(ec: pd.DataFrame) -> go.Figure:
                         fillcolor=color, opacity=0.13, line=dict(width=0), hoverinfo="skip", showlegend=False)
         fig.add_scatter(x=x, y=sub["prob"], mode="lines", line=dict(color=color, width=3.5), name=name,
                         hovertemplate=name + ": %{y:.0%} chance<extra></extra>")
-    top = float(ec["ci_high"].max()) * 1.15
+    top = float(ec["ci_high"].max()) * 1.06
     fig.update_layout(margin=dict(l=0, r=10, t=40, b=56), hovermode="x unified",
                       legend=dict(orientation="h", x=0, y=1.12, yanchor="bottom", bgcolor="rgba(0,0,0,0)",
                                   font=dict(size=13, color=ui.PALETTE["ink"])),
-                      xaxis=dict(range=[3, 97], tickvals=[9, 50, 91], automargin=True,
-                                 ticktext=["Darkest places", "In between", "Brightest places"]),
-                      yaxis=dict(range=[0, top], tickformat=".0%", title="Chance of being seen"))
+                      xaxis=dict(range=[2, 98], tickvals=[8, 50, 92], automargin=True,
+                                 ticktext=["Darkest", "In between", "Brightest"],
+                                 title=dict(text="Places, from darkest to brightest at night", standoff=8)),
+                      yaxis=dict(range=[0, top], tickformat=".0%", title="Chance it is recorded"))
     return ui.style_fig(fig, height=420, legend_bottom=False)
 
 
@@ -187,7 +231,7 @@ def priority_map(pa: pd.DataFrame, height: int = 520) -> go.Figure:
     if len(rest):
         fig.add_trace(go.Scattermap(
             lat=rest["lat"], lon=rest["lon"], mode="markers", marker=dict(size=7, color="#8a909b", opacity=0.55),
-            text=rest["locality"].fillna(""), customdata=rest["ratio"],
+            text=rest["locality"].fillna("Unnamed birding spot"), customdata=rest["ratio"],
             hovertemplate="<b>%{text}</b><br>Light-sensitive birds recorded<br>Night light ×%{customdata:.1f} "
                           "since 2014–16<extra></extra>"))
     if len(pri):
@@ -195,7 +239,7 @@ def priority_map(pa: pd.DataFrame, height: int = 520) -> go.Figure:
             lat=pri["lat"], lon=pri["lon"], mode="markers",
             marker=dict(size=11, color=pri["ratio"].clip(upper=4), colorscale=[[0, PRIORITY_LOW], [1, PRIORITY_HIGH]],
                         cmin=1.5, cmax=4, opacity=0.95, showscale=False),
-            text=pri["locality"].fillna(""), customdata=pri["ratio"],
+            text=pri["locality"].fillna("Unnamed birding spot"), customdata=pri["ratio"],
             hovertemplate="<b>%{text}</b><br>Light-sensitive birds recorded<br>Night light ×%{customdata:.1f} "
                           "since 2014–16<extra>Priority</extra>"))
     fig.update_layout(map=dict(style=MAP_STYLE, center=FOCUS_CENTER, zoom=8.3), margin=dict(l=0, r=0, t=0, b=0),
@@ -204,7 +248,7 @@ def priority_map(pa: pd.DataFrame, height: int = 520) -> go.Figure:
 
 
 def priority_legend(container=None) -> None:
-    ui.gradient_legend("Nights ×1.5 as bright", "×4 or more", [PRIORITY_LOW, PRIORITY_HIGH],
+    ui.gradient_legend("1.5× brighter than 2014–16", "4× or more", [PRIORITY_LOW, PRIORITY_HIGH],
                        extras=[("#8a909b", "Rose less than ×1.5")], container=container)
 
 
@@ -212,7 +256,7 @@ def top_places(pa: pd.DataFrame, n: int = 8) -> list[tuple[str, str]]:
     """Named priority places with the largest rise in night light; near-duplicate names merged."""
     rows, seen = [], set()
     for r in pa[pa["priority"]].sort_values("ratio", ascending=False).itertuples():
-        name = (r.locality or "").strip()
+        name = r.locality.strip() if isinstance(r.locality, str) else ""
         key = name.lower()[:14]
         if not name or key in seen:
             continue

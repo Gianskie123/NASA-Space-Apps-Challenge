@@ -52,9 +52,9 @@ with c_txt:
         ui.legend("Which birds?", [
             (ui.GROUP_COLORS["Sensitive"], "Birds that need darkness", f"For example {examples('sensitive')}."),
             (ui.GROUP_COLORS["Tolerant"], "Birds that tolerate light", f"For example {examples('tolerant')}."),
-        ], note="Groups follow the light-tolerance list from the team's Avilight project.")
+        ], note="Groups come from our earlier Avilight study of which Philippine birds cope with artificial light.")
 with c_fig:
-    ui.section("Chance of seeing a bird, from dark to bright places")
+    ui.section("How often a typical species is recorded, from the darkest to the brightest places")
     if ec is not None:
         st.plotly_chart(charts.effect_chart(ec), width="stretch", config=ui.CHART_CONFIG)
         ui.gloss("Shaded bands show the range we are 95% sure the true value lies in.")

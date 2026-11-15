@@ -143,7 +143,10 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid 
 [data-testid="stExpander"] details{background:var(--color-paper-2); border-radius:var(--radius-1);}
 [data-testid="stExpander"] summary p{font-weight:600;}
 
+.st-key-mnav{display:none !important;}
 @media (max-width: 640px){
+  .st-key-mnav{display:flex !important; flex-wrap:wrap; gap:6px;}
+  .st-key-mnav [data-testid="stPageLink"] a{padding:6px 10px;}
   .block-container{padding-left:var(--space-4); padding-right:var(--space-4); padding-top:4rem;}
   .av-page-title,.av-page-title.hero{font-size:1.55rem;}
   .av-verdict-a{font-size:1.7rem;}
