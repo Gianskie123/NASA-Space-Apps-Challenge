@@ -1,0 +1,9 @@
+term,label,odds_ratio,ci_low,ci_high,p_value
+z_alan:sensitive,Extra night-light effect for sensitive species (interaction),0.68,0.55,0.84,0.0004
+z_alan (sensitive),"Per 1 SD more night light, sensitive species",0.72,0.61,0.85,0.0002
+z_alan (tolerant),"Per 1 SD more night light, tolerant species",1.06,0.95,1.18,0.29
+z_ndvi,Per 1 SD more vegetation,1.12,1.01,1.24,0.03
+z_lst,Per 1 SD hotter land surface,0.97,0.88,1.07,0.55
+z_rain,Per 1 SD more rain,0.95,0.89,1.02,0.16
+log_duration,Per log-minute longer checklist,1.45,1.36,1.55,1e-06
+migrant,Migrant vs resident species,0.81,0.66,0.99,0.04
