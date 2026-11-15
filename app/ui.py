@@ -3,6 +3,8 @@
 Light theme for projectors, printouts and government readers. Every colour is a :root token; labels are
 sentence case; one accent marks state; numbers use tabular numerals; no gradients, no emoji icons.
 Plain words lead; specialist terms live inside "For scientists" panels. All text passed in is HTML-escaped.
+
+AI assistance: parts of this file were written with help from Claude (Anthropic). See REFERENCES.md.
 """
 
 from __future__ import annotations
@@ -140,8 +142,23 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid 
 
 /* charts sit on cards */
 [data-testid="stPlotlyChart"]{background:var(--color-paper-2); border:1px solid var(--color-rule); border-radius:var(--radius-1); padding:var(--space-2);}
-[data-testid="stExpander"] details{background:var(--color-paper-2); border-radius:var(--radius-1);}
-[data-testid="stExpander"] summary p{font-weight:600;}
+/* expandable panels: styled as clear, clickable cards (blue = for scientists, green = explore the data) */
+[data-testid="stExpander"]{--xp-color:var(--color-muted); --xp-wash:var(--color-neutral-wash); margin:var(--space-3) 0;}
+[class*="st-key-xp_sci"] [data-testid="stExpander"]{--xp-color:var(--color-accent); --xp-wash:var(--color-accent-wash);}
+[class*="st-key-xp_explore"] [data-testid="stExpander"]{--xp-color:var(--color-ok); --xp-wash:#2c7a4b12;}
+[data-testid="stExpander"] > details{background:var(--color-paper-2); border:1px solid var(--color-rule) !important;
+  border-left:6px solid var(--xp-color) !important; border-radius:var(--radius-1); box-shadow:0 1px 3px rgba(27,34,48,.06);}
+[data-testid="stExpander"] > details > summary{padding:var(--space-4) var(--space-5); cursor:pointer; gap:var(--space-3);}
+[data-testid="stExpander"] > details > summary:hover{background:var(--xp-wash);}
+[data-testid="stExpander"] > details:hover{border-color:var(--xp-color) !important;}
+[data-testid="stExpander"] > details > summary p{font-size:var(--step-0); color:var(--color-ink-2); font-weight:400;}
+[data-testid="stExpander"] > details > summary p strong{color:var(--color-ink); font-weight:700;}
+[data-testid="stExpander"] > details > summary [data-testid="stIconMaterial"]{color:var(--xp-color); font-size:1.4rem;}
+[data-testid="stExpander"] > details > summary [data-testid="stExpanderToggleIcon"]{display:none;}
+[data-testid="stExpander"] > details > summary::after{content:"Show ▾"; margin-left:auto; flex-shrink:0; white-space:nowrap;
+  font-size:var(--step--1); font-weight:700; color:var(--xp-color); border:1.5px solid var(--xp-color);
+  border-radius:var(--radius-pill); padding:4px 12px;}
+[data-testid="stExpander"] > details[open] > summary::after{content:"Hide ▴"; background:var(--xp-color); color:#fff;}
 
 .st-key-mnav{display:none !important;}
 @media (max-width: 640px){

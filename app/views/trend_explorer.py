@@ -3,6 +3,8 @@
 Order: three plain controls, the answer in words, the evidence year by year, then the whole country on one map.
 The test details (Seasonal Mann-Kendall, Sen's slope, p-values, coverage, the monthly animation) sit in the
 "For scientists" panel. All statistics come from src/trends.py through trend_bridge.
+
+AI assistance: parts of this file were written with help from Claude (Anthropic). See REFERENCES.md.
 """
 
 from __future__ import annotations
@@ -163,7 +165,8 @@ else:
                  "tested separately, then checked so that testing 85 provinces at once does not create false alarms.")
 
 # ---------------------------------------------------------------- for scientists
-with st.expander("For scientists: test details, raw monthly data and the month-by-month animation"):
+with st.expander("**For scientists**: test details, p-values, raw monthly data and the month-by-month animation",
+                 key="xp_sci_trend", icon=":material/science:"):
     if not is_lc:
         st.radio("Trend test", ["monthly", "annual"], horizontal=True, key="te_freq",
                  format_func=lambda f: "Seasonal Mann–Kendall on monthly values" if f == "monthly"

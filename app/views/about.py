@@ -1,4 +1,7 @@
-"""Page 3: About the data."""
+"""Page 3: About the data.
+
+AI assistance: parts of this file were written with help from Claude (Anthropic). See REFERENCES.md.
+"""
 
 from pathlib import Path
 
@@ -105,7 +108,8 @@ if refs.exists():
     # level so they sit under this section; its AI assistance section covers the disclosure.
     lines = refs.read_text(encoding="utf-8").splitlines()
     body = "\n".join("###" + ln if ln.startswith("#") else ln for ln in lines if not ln.startswith("# "))
-    with st.expander("Full list of references, software and AI assistance"):
+    with st.expander("**Full references**: every dataset, library and AI tool we used", key="xp_refs",
+                     icon=":material/menu_book:"):
         st.markdown(body)
 else:
     st.markdown("""
@@ -114,6 +118,9 @@ else:
 - eBird Basic Dataset. Cornell Lab of Ornithology, Ithaca, New York.
 - Software: Streamlit, Plotly, pandas, NumPy, SciPy and PyArrow.
 """)
-    ui.section("AI assistance")
-    st.markdown("AI tools helped with parts of the code and text; the idea, analysis choices and checks are the team's "
-                "own. OpenAI Codex and Claude were used; see REFERENCES.md.")
+
+ui.section("AI assistance")
+st.markdown("AI tools helped write parts of the code and text: OpenAI Codex for the Earth Engine extraction code, and "
+            "Claude (Anthropic) for the eBird cleaning script, the statistics code, this web app and the project write-up. The idea, the analysis "
+            "choices, the checks and the final decisions are the team's own. No images, video or audio were made "
+            "with AI. Details are in REFERENCES.md, and AI-assisted commits are marked in the git history.")

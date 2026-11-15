@@ -3,6 +3,8 @@
 Order: the finding (sentence + chart + example species), where to act (priority map + named places), how sure we
 are, then two optional panels: explore the bird data (effort, reporting rates, satellite values; gaps drawn as
 gaps, never zero) and the model details for scientists. Numbers come from the data files, never typed in.
+
+AI assistance: parts of this file were written with help from Claude (Anthropic). See REFERENCES.md.
 """
 
 from __future__ import annotations
@@ -147,7 +149,8 @@ def build_map(cells: pd.DataFrame, unit: str, cscale: str, crange: tuple[float, 
     return ui.style_fig(fig, height=560, legend_bottom=False)
 
 
-with st.expander("Explore the bird data: where people birdwatched, what they recorded, and the satellite values"):
+with st.expander("**Explore the bird data**: where people birdwatched, what they recorded, and the satellite values",
+                 key="xp_explore_birds", icon=":material/travel_explore:"):
     modes = {"Where people birdwatched": "effort", "How often birds were recorded": "rate",
              "Satellite values": "cov"}
     if not ld.available("cell_rates.parquet"):
@@ -194,7 +197,8 @@ with st.expander("Explore the bird data: where people birdwatched, what they rec
     ui.gloss(ui.escape(note + gap_note + " Open water is hidden."))
 
 # ---------------------------------------------------------------- for scientists
-with st.expander("For scientists: model, robustness and spatial checks"):
+with st.expander("**For scientists**: model numbers, robustness checks and spatial tests", key="xp_sci_birds",
+                 icon=":material/science:"):
     coefs = ld.model_coefficients()
     if coefs and coefs[1] == "full":
         co = coefs[0].set_index("term")
