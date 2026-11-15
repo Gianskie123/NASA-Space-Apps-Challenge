@@ -1,11 +1,10 @@
-# I'll add the final ebird records to use
+# Raw and cleaned eBird source files (large, not for the public repo)
 /Cleaned EBIRD Records/
-/RAW EBIRD Records/
+/Raw EBIRD Records/
 # Internal hand-off notes (not for the public repo)
 docs/HANDOFF_MEMBER1_TO_MEMBER3.md
 # Drive download archives of the processed folder
 data/*.zip
-.superpowers/
 # Member 2 monthly grid (35 MB): bird model input only, not used by the app
 data/processed/grid_monthly.parquet
 # Python bytecode cache
