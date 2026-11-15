@@ -117,56 +117,66 @@ Member 3 hands `trends.py` to Member 4 first, so the Trend Explorer works before
 
 ## Member 1: eBird data ingestion and cleaning
 
-**Goal:** turn raw eBird files into checklists with true absences, plus a grid showing where nobody birded. Member 3 models from your files; Member 4 maps your effort grid.
+**Status: done.** All checks pass; outputs are in `data/processed/` and the hand-off note has been sent to Member 3. Built with `notebooks/01_member1_ebird_yearly.ipynb`.
 
-**Inputs**
+**Goal:** turn raw eBird files into checklists with true absences, plus a grid showing where nobody birded. Member 3 models from these files; Member 4 maps the effort grid.
 
-- eBird Basic Dataset (EBD) for the Philippines, **January 2014 to December 2025, with Sampling Event Data**. Each download gives two files: the observations file (`ebd_..._smp_....txt`) and the sampling file (`..._sampling.txt`). The current 2014–2024 cleaned Excel files can't be used for this: they dropped the checklist ID.
-- Species masterlist from Avilight (Google Sheet): `Species Name`, `Light Tolerance`, `Migratory Status`.
+**Inputs (as built)**
 
-**Steps**
+- **Yearly eBird observation files** (`2014_EBIRD` … `2025_EBIRD`, Google Sheets shared by link). They have no `SAMPLING EVENT IDENTIFIER`, so checklists are rebuilt (step 3).
+- Species masterlist from Avilight (Google Sheet, shared by link): `Species Name`, `Light Tolerance`, `Migratory Status`.
+- Alternative route (not used): the official eBird downloads with Sampling Event Data (`ebd_..._smp_....zip`) and `notebooks/01_member1_ebird_ingestion.ipynb`, which uses real checklist IDs. Use it if a full eBird download replaces the yearly files.
 
-1. **Load the sampling file (one row per checklist).** Read as tab-separated with `quoting=3` (no quote handling, eBird text fields contain quotes). Keep: `SAMPLING EVENT IDENTIFIER`, `GROUP IDENTIFIER`, `OBSERVATION DATE`, `TIME OBSERVATIONS STARTED`, `PROTOCOL` `NAME (the column name in the Sep-2026 release; older releases call it PROTOCOL TYPE`), `DURATION MINUTES`, `EFFORT DISTANCE KM`, `NUMBER OBSERVERS`, `ALL SPECIES REPORTED`, `LATITUDE`, `LONGITUDE`, `LOCALITY`, `LOCALITY TYPE`.
-2. **Combine downloads and remove duplicates.** Some zips overlap (Jan–Dec 2025 contains both half-year files). Concatenate, then drop duplicate `SAMPLING EVENT IDENTIFIER`.
-3. **Crop to the bird focus area:** latitude 14.00–15.30, longitude 120.50–121.60.
+**How the notebook is run**
+
+- **Part A, once per year:** set `YEAR` and `LINK`, load with `df = load_table(LINK)`, check columns, run `process_year(df, YEAR)`. Each year is saved to `data/interim/`.
+- **Part B, once after all years:** combines the years inside the 2014–2025 window (other years, such as a partial 2026, are skipped), then builds the outputs and runs the checks.
+
+**Steps (as built)**
+
+1. **Check columns.** Required: `OBSERVATION DATE`, `LATITUDE`, `LONGITUDE`, `ALL SPECIES REPORTED`, `PROTOCOL NAME` (or `PROTOCOL TYPE`), `DURATION MINUTES`, `EFFORT DISTANCE KM`, `NUMBER OBSERVERS`, `COMMON NAME`, `OBSERVATION COUNT`. Without `ALL SPECIES REPORTED` or the effort columns, true absences and effort correction are impossible, so the notebook stops.
+2. **Keep the year, approved records, and the Greater Manila box** (latitude 14.00–15.30, longitude 120.50–121.60). The notebook warns if a file covers a smaller area.
+3. **Rebuild checklists.** Rows with the same date + start time + location (`LOCALITY ID`, else lat/lon to 4 decimals) + protocol + duration + distance + number of observers form one checklist, with a hashed `checklist_id`. Shared group checklists (copies of one outing) are identical on these columns, so they merge automatically; `GROUP IDENTIFIER` is used directly when present. A checklist counts as complete if any copy was complete. Validated against real eBird IDs on 2025: within 0.4%.
 4. **Apply the eBird Best Practices filters:**
    - `ALL SPECIES REPORTED == 1` (complete checklists only; this is what makes a 0 a true absence)
    - Protocol is Stationary or Traveling
    - Duration 5–300 minutes
-   - Distance ≤ 5 km (Stationary counts as 0 km). Keep these, but also log how many checklists are ≤ 2 km: Member 3 fits the main bird model on ≤ 2 km checklists, so the birds stay close to the checklist's 1 km cell, and uses ≤ 5 km as a robustness check
-   - Number of observers ≤ 10
-   - Date between 2014-01-01 and 2025-12-31
-5. **Collapse shared checklists.** When birders bird together, eBird stores a copy per person under the same `GROUP IDENTIFIER`. Keep one checklist per group (the first by ID).
-6. **Add derived columns:** `year`, `month`, `week` (1–53), `hour_started` (decimal hours), `cell_id` using the formula in Key decisions.
-7. **Load the observations file** for the kept checklist IDs only. Keep `SAMPLING EVENT IDENTIFIER`, `CATEGORY`, `COMMON NAME`, `SCIENTIFIC NAME`, `OBSERVATION COUNT`, `APPROVED`. Keep `APPROVED == 1`. Roll subspecies and forms (`issf`, `form`, `domestic`) up to the species. Drop `spuh`, `slash` and `hybrid` (they can't be assigned to one species).
-8. **Build the species list.** Count detections per species. Join the masterlist traits by name. Flag `focus = True` for species detected on at least 50 checklists **and** with a known light-tolerance value. Unmatched names go in a short list for Member 3 to fix by hand (eBird names change over the years).
-9. **Zero-fill (create the true absences).** For every kept checklist × every focus species: `detected = 1` if reported, else `0`. Keep the reported count in `count` (NaN when 0 or when eBird shows `X`). **Do not impute `X` with a median any more**: for detection it is simply 1.
-10. **Build the effort grid.** For every focus-grid cell × year × month (all of them, including empty ones): `n_checklists`, `total_hours`. Add `is_gap = n_checklists == 0`. For each cell over the whole period: `low_data = total checklists < 5`.
+   - Distance ≤ 5 km (Stationary counts as 0 km). All are kept, with a `within_2km` flag: Member 3 fits the main bird model on ≤ 2 km checklists and uses ≤ 5 km as a robustness check
+   - Number of observers 1–10
+5. **Build detections.** Keep species-level records (`species`, `issf`, `form`, `domestic` count as their species; `spuh`, `slash` and `hybrid` are dropped). One row per checklist × species; for merged group copies the **highest** count is kept (not the sum). `X` counts: detection = 1, `count` left blank. **No median imputation.**
+6. **Drop checklists with no bird records** (< 1%): a complete 5–300 minute checklist with zero birds is implausible here and most likely an entry error or withheld sensitive records.
+7. **Add derived columns:** `year`, `month`, `week` (1–52), `hour_started` (decimal hours), `cell_row`, `cell_col`, `cell_id` (formula in Key decisions), `within_2km`.
+8. **Species list and focus species.** Count detections per species and join masterlist traits by normalised name. `focus = True` when a species is detected on **at least 50 checklists and at least 1% of all checklists**, **and** has a known light tolerance. Common species without a trait are written to `species_unmatched.csv` for name fixes (it came out empty: all matched).
+9. **Zero-fill (create the true absences).** Every usable checklist × every focus species: `detected = 1` if reported, else `0`. Duplicate checklist × species rows are merged before this step (a few occurred in 2020).
+10. **Build the effort grid.** Every cell × year × month in 2014–2025, including empty ones: `n_checklists`, `total_hours`, `is_gap = n_checklists == 0`; per cell over the whole period, `low_data = 1–4 checklists`.
 
-**Outputs (to `data/processed/`)**
+**Outputs (in `data/processed/`)**
 
-| File | One row per | Columns |
-| --- | --- | --- |
-| `checklists.parquet` | kept checklist | `checklist_id, date, year, month, week, hour_started, protocol, duration_min, distance_km, n_observers, lat, lon, cell_id, locality` |
-| `detections.parquet` | checklist × focus species | `checklist_id, species, detected, count` |
-| `species.parquet` | species | `species, scientific_name, n_detections, light_tolerance, migratory_status, focus` |
-| `effort_grid.parquet` | cell × year × month | `cell_id, year, month, n_checklists, total_hours, is_gap, low_data` |
-| `filter_log.csv` | filter step | `step, checklists_remaining` |
+| File | One row per | Columns | Result |
+| --- | --- | --- | --- |
+| `checklists.parquet` | usable checklist | `checklist_id, date, year, month, week, hour_started, protocol, duration_min, distance_km, within_2km, n_observers, lat, lon, cell_row, cell_col, cell_id` (+ locality columns if present) | 23,947 rows |
+| `detections.parquet` | checklist × focus species | `checklist_id, species, detected, count` | 3,424,421 rows (143 focus species) |
+| `species.parquet` | species | `species, scientific_name, n_detections, reporting_rate, light_tolerance, migratory_status, focus` | 364 species; focus 61 Sensitive / 82 Tolerant |
+| `effort_grid.parquet` | cell × year × month | `cell_row, cell_col, cell_id, year, month, n_checklists, total_hours, is_gap, low_data` | 2,568,240 rows (17,835 × 144) |
+| `filter_log.csv` | year × filter step | `year, step, checklists_remaining` | 2014–2025 |
+| `species_unmatched.csv`, `figures/hotspots.png` | — | — | empty list; effort map 2014–2025 |
+
+**Key facts for the team:** 88% of checklists are from 2020–2025 (2014: 111; 2025: 5,409); 87.8% are within 2 km; 1,459 cells have data and 434 have ≥ 5 checklists; Moran's I (provisional, before removing water cells): gaps 0.308, effort 0.226, both p ≤ 0.001. Full details in the hand-off note.
 
 **Checks (all must pass before handing off)**
 
-- [ ] `checklist_id` is unique in `checklists.parquet`.
-- [ ] Rows in `detections.parquet` = (number of checklists) × (number of focus species), exactly.
-- [ ] Every `checklist_id` in detections exists in checklists.
-- [ ] Pick 3 species. Count checklists reporting each in the raw file after the same filters. It matches `detected.sum()` for that species.
-- [ ] No row has `ALL SPECIES REPORTED = 0`, duration > 300, distance > 5 or observers > 10.
-- [ ] Min/max lat and lon lie inside the focus box.
-- [ ] `filter_log.csv` shows checklists falling at each step, with no step losing over 90% (if it does, the filter is probably wrong).
-- [ ] Plot `n_checklists` per cell summed over all years. Known hotspots light up: La Mesa watershed / UP Diliman area, Rizal Park area, the Las Piñas–Parañaque wetlands, Candaba marsh, the Bataan coast and Mt. Makiling / Los Baños. Most other cells are gaps. Also check how many checklists the edge provinces have in 2014–2016: if almost none, tell Member 3 early. Screenshot this: it goes in the app and the slides.
-- [ ] The most-reported species are common urban birds (for example Eurasian Tree Sparrow, Yellow-vented Bulbul, Zebra Dove). If a rare species tops the list, a join is wrong.
-- [ ] The effort grid has exactly (number of cells) × 144 rows.
+- [x] `checklist_id` is unique in `checklists.parquet`.
+- [x] Rows in `detections.parquet` = (number of checklists) × (number of focus species), exactly.
+- [x] Every `checklist_id` in detections exists in checklists.
+- [x] Pick 3 species. Count checklists reporting each in the raw file after the same filters. It matches `detected.sum()` for that species.
+- [x] No row has `ALL SPECIES REPORTED = 0`, duration > 300, distance > 5 or observers > 10.
+- [x] Min/max lat and lon lie inside the focus box.
+- [x] `filter_log.csv` shows checklists falling at each step, with no step losing over 90% (if it does, the filter is probably wrong).
+- [x] Plot `n_checklists` per cell summed over all years. Known hotspots light up: La Mesa watershed / UP Diliman area, Rizal Park area, the Las Piñas–Parañaque wetlands, Candaba marsh, the Bataan coast and Mt. Makiling / Los Baños. Most other cells are gaps. Also check how many checklists the edge provinces have in 2014–2016: if almost none, tell Member 3 early. Screenshot this: it goes in the app and the slides.
+- [x] The most-reported species are common urban birds (for example Eurasian Tree Sparrow, Yellow-vented Bulbul, Zebra Dove). If a rare species tops the list, a join is wrong.
+- [x] The effort grid has exactly (number of cells) × 144 rows.
 
-**Hand-off:** post the five files and the hotspot screenshot in the team channel. Tell Member 3 the number of checklists and focus species.
+**Hand-off: done.** Files and the hotspot map posted; the hand-off note to Member 3 is `docs/HANDOFF_MEMBER1_TO_MEMBER3.md` (kept out of git). Remaining for Member 3: rerun the gaps Moran's I on land cells once Member 2 delivers `water_frac`.
 
 ## Member 2: covariate extraction in Google Earth Engine
 
