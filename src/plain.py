@@ -82,7 +82,7 @@ def _ends(curve: pd.DataFrame, sensitive: int) -> tuple[float, float]:
     return float(c["prob"].iloc[0]), float(c["prob"].iloc[-1])
 
 
-def _times(r: float) -> str:
+def times_text(r: float) -> str:
     return f"{r:.0f}" if r >= 3 else f"{r:.1f}"
 
 
@@ -94,7 +94,7 @@ def bird_headline(curve: pd.DataFrame) -> dict:
     t_ratio = t_dark / t_bright if t_bright > 0 else float("inf")
     clear = bool(ratio >= 1.5 and ratio > t_ratio)
     if clear:
-        text = (f"In the brightest places, birds that need darkness are about {_times(ratio)}× less likely to be "
+        text = (f"In the brightest places, birds that need darkness are about {times_text(ratio)}× less likely to be "
                 f"seen than in the darkest places ({s_dark:.0%} → {s_bright:.0%} chance on a typical one-hour "
                 f"birdwatch). Birds that tolerate light change much less ({t_dark:.0%} → {t_bright:.0%}).")
     else:

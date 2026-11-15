@@ -1,10 +1,8 @@
-"""Shared look and feel: tokens, cards, badges, legends.
+"""Shared look and feel: tokens, cards, legends.
 
-Design rules follow Hallmark (github.com/Nutlope/hallmark), app-screen scope:
-every colour is a :root token, labels are sentence case and untracked, one
-accent marks state, numbers use tabular numerals, no gradients, no emoji
-icons, no middle-dot meta strings. Palette from the team's AviLight dashboard.
-All text passed in is HTML-escaped.
+Light theme for projectors, printouts and government readers. Every colour is a :root token; labels are
+sentence case; one accent marks state; numbers use tabular numerals; no gradients, no emoji icons.
+Plain words lead; specialist terms live inside "For scientists" panels. All text passed in is HTML-escaped.
 """
 
 from __future__ import annotations
@@ -13,143 +11,143 @@ from html import escape
 
 import streamlit as st
 
-from config import APP_NAME
+from config import APP_NAME, TAGLINE
 
 # Python-side mirror of the tokens below, for Plotly (which cannot read CSS variables).
 PALETTE = {
-    "paper": "#0f1117", "paper2": "#1a1d23", "paper3": "#21252d", "rule": "#2c313b",
-    "ink": "#e8eaef", "ink2": "#b4b9c5", "muted": "#7d8394",
-    "accent": "#4f8ff7", "accent_soft": "#8db6fa", "accent_faint": "#2a4a7f",
-    "warn": "#e0b54a", "danger": "#e5726a", "ok": "#5fbf86",
-    "gap": "#c8c8c8",
+    "paper": "#f6f6f3", "paper2": "#ffffff", "paper3": "#efefea", "rule": "#e1e1da",
+    "ink": "#1b2230", "ink2": "#454d5b", "muted": "#6b7280",
+    "accent": "#1f5fbf", "accent_soft": "#6f9ad8", "accent_faint": "#dbe6f6",
+    "warn": "#9a6400", "danger": "#b3372b", "ok": "#2c7a4b",
+    "gap": "#b9bcc2", "neutral": "#c9ccd2",
 }
-# Bird groups: the argued series (sensitive) wears the accent; the reference series is muted.
-GROUP_COLORS = {"Sensitive": PALETTE["accent"], "Tolerant": PALETTE["muted"]}
+# Bird groups: birds that need darkness wear the accent; the reference group is muted.
+GROUP_COLORS = {"Sensitive": "#1f5fbf", "Tolerant": "#8a909b"}
 
 _CSS = """
 <style>
-/* Hallmark v2.0.0 | shape: app screen | scope: app | genre: modern-minimal | theme: custom (AviLight navy) | modes: dark | data: sample until hand-off */
-/* critique: one accent for state only; figures are tiles with worded qualifiers; gaps drawn as gaps, never zeros */
 :root{
-  --color-paper:#0f1117; --color-paper-2:#1a1d23; --color-paper-3:#21252d; --color-rule:#2c313b;
-  --color-ink:#e8eaef; --color-ink-2:#b4b9c5; --color-muted:#7d8394; --color-field-edge:#6f7686;
-  --color-accent:#4f8ff7; --color-accent-soft:#8db6fa; --color-accent-wash:#4f8ff724; --color-accent-line:#4f8ff7a6;
-  --color-selection:#4f8ff74d;
-  --color-warn:#e0b54a; --color-warn-wash:#e0b54a1f; --color-warn-line:#e0b54a52;
-  --color-danger:#e5726a; --color-danger-wash:#e5726a1f; --color-danger-line:#e5726a4d;
-  --color-ok:#5fbf86; --color-ok-wash:#5fbf862e;
-  --color-neutral-wash:#7d83941f; --color-neutral-line:#7d839466;
-  --color-ring:#e8eaef; --color-focus:#8db6fa; --color-focus-on-light:#0f1117;
-  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px; --space-7:28px;
-  --radius-1:10px; --radius-2:8px; --radius-pill:999px;
-  --step--1:0.84rem; --step-0:1rem; --step-1:1.125rem; --step-2:1.27rem; --step-3:1.6rem;
+  --color-paper:#f6f6f3; --color-paper-2:#ffffff; --color-paper-3:#efefea; --color-rule:#e1e1da;
+  --color-ink:#1b2230; --color-ink-2:#454d5b; --color-muted:#6b7280; --color-field-edge:#8b919c;
+  --color-accent:#1f5fbf; --color-accent-wash:#1f5fbf12; --color-accent-line:#1f5fbf66;
+  --color-warn:#9a6400; --color-warn-wash:#f5b5001f; --color-warn-line:#c9930066;
+  --color-danger:#b3372b; --color-danger-wash:#b3372b14; --color-danger-line:#b3372b55;
+  --color-ok:#2c7a4b; --color-neutral-wash:#6b72800f; --color-neutral-line:#6b728055;
+  --color-focus:#1f5fbf;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px; --space-7:32px;
+  --radius-1:12px; --radius-2:8px; --radius-pill:999px;
+  --step--1:0.86rem; --step-0:1rem; --step-1:1.15rem; --step-2:1.35rem; --step-3:1.9rem; --step-4:2.4rem;
 }
 html,body{overflow-x:clip;}
-html{scrollbar-color:var(--color-rule) var(--color-paper);}
-::selection{background:var(--color-selection); color:var(--color-ink);}
-.block-container{padding-top:2.2rem; max-width:1440px; margin-inline:auto;}
-a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--color-focus); outline-offset:2px; transition:none;}
-/* links drawn over the light basemap get a dark ring */
-.maplibregl-ctrl-attrib a:focus-visible{outline-color:var(--color-focus-on-light);}
-/* the chart toolbar only shows on hover; keep it visible while it holds keyboard focus, ring inside the button */
-.js-plotly-plot .modebar--hover:focus-within .modebar-group{opacity:1;}
-.js-plotly-plot .plotly .modebar .modebar-btn:focus-visible{outline:2px solid var(--color-focus); outline-offset:-2px;}
-.av-link,[data-testid="stMarkdownContainer"] a{color:var(--color-accent-soft);}
-.av-link:hover,[data-testid="stMarkdownContainer"] a:hover{color:var(--color-ink);}
-.av-link:active,[data-testid="stMarkdownContainer"] a:active{color:var(--color-accent);}
-/* field edges at 3:1 against the surface */
-.stSelectbox div:has(> input),.stTextInput div:has(> input),.stNumberInput div:has(> input),[data-baseweb="select"] > div{border-color:var(--color-field-edge);}
+.block-container{padding-top:4.4rem; max-width:1240px; margin-inline:auto;}
+a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--color-focus); outline-offset:2px;}
+[data-testid="stMarkdownContainer"] a,.av-link{color:var(--color-accent);}
+.stSelectbox div:has(> input),[data-baseweb="select"] > div{border-color:var(--color-field-edge);}
 
-/* page header */
-.av-page-title{font-size:var(--step-3); font-weight:700; color:var(--color-ink); margin:0 0 var(--space-1) 0; line-height:1.25;
-  overflow-wrap:break-word; min-width:0;}
-.av-page-sub{color:var(--color-ink-2); font-size:var(--step-0); margin:0 0 var(--space-5) 0; max-width:70ch;}
+/* brand line + page header */
+.av-brand{font-size:var(--step--1); color:var(--color-muted); margin:0 0 var(--space-2) 0;}
+.av-brand b{color:var(--color-accent); font-weight:700;}
+.av-page-title{font-size:var(--step-3); font-weight:750; color:var(--color-ink); margin:0 0 var(--space-2) 0; line-height:1.2;
+  max-width:28ch; text-wrap:balance;}
+.av-page-title.hero{font-size:var(--step-4); max-width:30ch;}
+.av-page-sub{color:var(--color-ink-2); font-size:var(--step-1); margin:0 0 var(--space-6) 0; max-width:64ch; line-height:1.5;}
 
-/* section heading: sentence case, untracked, body face */
-.av-section{font-size:var(--step-1); font-weight:600; color:var(--color-ink); margin:var(--space-7) 0 var(--space-3) 0; line-height:1.3;}
-.av-section-sub{font-weight:400; color:var(--color-muted); font-size:var(--step--1); margin-left:var(--space-2);}
-.av-section-tag{margin-left:var(--space-2); font-weight:400;}
-.av-section-tag .av-badge{vertical-align:2px;}
-/* plain-language glossary line under a result */
-.av-gloss{font-size:var(--step--1); color:var(--color-muted); line-height:1.5; margin:0 0 var(--space-3) 0; max-width:75ch;}
+/* section heading */
+.av-section{font-size:var(--step-2); font-weight:700; color:var(--color-ink); margin:var(--space-7) 0 var(--space-1) 0; line-height:1.3;}
+.av-section-sub{display:block; font-weight:400; color:var(--color-ink-2); font-size:var(--step-0); margin:var(--space-1) 0 var(--space-3) 0; max-width:70ch;}
+.av-gloss{font-size:var(--step--1); color:var(--color-muted); line-height:1.55; margin:var(--space-1) 0 var(--space-3) 0; max-width:78ch;}
 .av-gloss b{color:var(--color-ink-2); font-weight:600;}
 
-/* figure tiles */
+/* finding cards (Overview) */
+.av-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)); gap:var(--space-4); margin:0 0 var(--space-4) 0;}
+.av-card{background:var(--color-paper-2); border:1px solid var(--color-rule); border-radius:var(--radius-1); padding:var(--space-5);
+  border-top:4px solid var(--card-color, var(--color-accent));}
+.av-card-kicker{font-size:var(--step--1); font-weight:650; color:var(--card-color, var(--color-accent)); margin-bottom:var(--space-2);}
+.av-card-big{font-size:2.1rem; font-weight:800; color:var(--color-ink); line-height:1.1; font-variant-numeric:tabular-nums;}
+.av-card-text{font-size:var(--step-0); color:var(--color-ink-2); line-height:1.5; margin-top:var(--space-2);}
+
+/* verdict (the answer for a selection) */
+.av-verdict{background:var(--color-paper-2); border:1px solid var(--color-rule); border-left:6px solid var(--verdict-color, var(--color-neutral-line));
+  border-radius:var(--radius-1); padding:var(--space-5) var(--space-6); margin:var(--space-2) 0 var(--space-4) 0;}
+.av-verdict-q{font-size:var(--step-0); color:var(--color-ink-2);}
+.av-verdict-a{font-size:2.2rem; font-weight:800; color:var(--verdict-color, var(--color-ink)); line-height:1.15; margin:var(--space-1) 0 var(--space-2) 0;}
+.av-verdict-line{font-size:var(--step-1); color:var(--color-ink); line-height:1.5;}
+.av-verdict-line.muted{color:var(--color-ink-2); font-size:var(--step-0);}
+
+/* the headline sentence */
+.av-insight{background:var(--color-paper-2); border:1px solid var(--color-rule); border-left:6px solid var(--color-accent);
+  border-radius:var(--radius-1); padding:var(--space-5) var(--space-6); margin-bottom:var(--space-4);}
+.av-insight-text{font-size:var(--step-2); font-weight:650; color:var(--color-ink); line-height:1.45; font-variant-numeric:tabular-nums;}
+.av-insight-meta{font-size:var(--step--1); color:var(--color-muted); margin-top:var(--space-3);}
+
+/* numbered recommendations and checklists */
+.av-list{background:var(--color-paper-2); border:1px solid var(--color-rule); border-radius:var(--radius-1); padding:var(--space-2) var(--space-5); margin-bottom:var(--space-4);}
+.av-item{display:flex; gap:var(--space-4); align-items:flex-start; padding:var(--space-3) 0; border-bottom:1px solid var(--color-rule);}
+.av-item:last-child{border-bottom:none;}
+.av-item-num{width:30px; height:30px; border-radius:50%; background:var(--color-accent-wash); color:var(--color-accent);
+  font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-variant-numeric:tabular-nums;}
+.av-item-title{font-weight:650; color:var(--color-ink);}
+.av-item-body{color:var(--color-ink-2); line-height:1.55; max-width:75ch;}
+
+/* places list */
+.av-place{display:flex; justify-content:space-between; gap:var(--space-3); padding:var(--space-2) 0; border-bottom:1px solid var(--color-rule); font-size:0.95rem;}
+.av-place:last-child{border-bottom:none;}
+.av-place-name{color:var(--color-ink); min-width:0; overflow-wrap:anywhere;}
+.av-place-val{color:var(--color-warn); font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums;}
+
+/* figure tiles (scientist panels) */
 .av-stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr)); gap:var(--space-3); margin-bottom:var(--space-3);}
-.av-stat{background:var(--color-paper-2); border:1px solid var(--color-rule); border-radius:var(--radius-1); padding:var(--space-4); min-width:0;}
+.av-stat{background:var(--color-paper-2); border:1px solid var(--color-rule); border-radius:var(--radius-2); padding:var(--space-4); min-width:0;}
 .av-stat.accent{border-color:var(--color-accent-line);}
 .av-stat-label{font-size:var(--step--1); color:var(--color-ink-2); margin-bottom:var(--space-2);}
-.av-stat-value{font-size:1.7rem; font-weight:700; color:var(--color-ink); line-height:1.15; font-variant-numeric:tabular-nums;
-  overflow-wrap:break-word;}
-.av-stat-value.compact{font-size:var(--step-2); line-height:1.3;}
-.av-stat-aside{font-size:var(--step--1); color:var(--color-ink-2); margin-left:var(--space-2); font-variant-numeric:tabular-nums;}
+.av-stat-value{font-size:1.5rem; font-weight:700; color:var(--color-ink); line-height:1.15; font-variant-numeric:tabular-nums; overflow-wrap:break-word;}
+.av-stat-value.compact{font-size:var(--step-1); line-height:1.3;}
+.av-stat-aside{font-size:var(--step--1); color:var(--color-ink-2); margin-left:var(--space-2);}
 .av-stat-desc{font-size:var(--step--1); color:var(--color-muted); margin-top:var(--space-2); line-height:1.45;}
 
-/* the answer */
-.av-insight{background:var(--color-paper-2); border:1px solid var(--color-accent-line);
-  border-radius:var(--radius-1); padding:var(--space-4) var(--space-5); margin-bottom:var(--space-4);}
-.av-insight-text{font-size:var(--step-2); font-weight:600; color:var(--color-ink); line-height:1.45; font-variant-numeric:tabular-nums;}
-.av-insight-meta{font-size:var(--step--1); color:var(--color-muted); margin-top:var(--space-2);}
-
 /* notices */
-.av-alert{border-radius:var(--radius-2); padding:var(--space-3) var(--space-4); margin:0 0 var(--space-3) 0; font-size:0.92rem; line-height:1.5; color:var(--color-ink);}
+.av-alert{border-radius:var(--radius-2); padding:var(--space-3) var(--space-4); margin:0 0 var(--space-3) 0; font-size:0.95rem; line-height:1.5; color:var(--color-ink);}
 .av-alert.info{background:var(--color-accent-wash); border:1px solid var(--color-accent-line);}
 .av-alert.warn{background:var(--color-warn-wash); border:1px solid var(--color-warn-line);}
 .av-alert.danger{background:var(--color-danger-wash); border:1px solid var(--color-danger-line);}
 .av-alert.pending{background:var(--color-neutral-wash); border:1px dashed var(--color-neutral-line); color:var(--color-ink-2);}
-.av-alert b{color:var(--color-ink);}
-
-/* tags: body face, a step smaller, lower case, untracked */
-.av-badge{display:inline-block; font-size:var(--step--1); line-height:1; padding:var(--space-1) var(--space-2); border-radius:var(--radius-pill);
-  white-space:nowrap; margin:2px var(--space-1) 2px 0; vertical-align:middle; border:1px solid var(--color-rule); color:var(--color-ink-2);
-  background:var(--color-paper-3);}
-.av-badge.accent{border-color:var(--color-accent-line); background:var(--color-accent-wash); color:var(--color-accent-soft);}
-.av-badge.ok{border-color:var(--color-ok); color:var(--color-ok); background:var(--color-ok-wash);}
-.av-badge.warn{border-color:var(--color-warn-line); color:var(--color-warn); background:var(--color-warn-wash);}
-.av-badge.danger{border-color:var(--color-danger-line); color:var(--color-danger); background:var(--color-danger-wash);}
 
 /* legend */
 .av-legend{background:var(--color-paper-2); border:1px solid var(--color-rule); border-radius:var(--radius-1); padding:var(--space-3) var(--space-4); margin-bottom:var(--space-3);}
-.av-legend-title{font-size:var(--step--1); font-weight:600; color:var(--color-ink); margin-bottom:var(--space-2);}
-.av-legend-item{display:flex; align-items:flex-start; gap:var(--space-3); margin:var(--space-2) 0; font-size:0.9rem; color:var(--color-ink);}
-.av-legend-swatch{width:var(--space-4); height:var(--space-4); border-radius:var(--space-1); flex-shrink:0; margin-top:2px;}
-.av-legend-swatch.ring{background:transparent; border:2px solid var(--color-ring); border-radius:50%;}
+.av-legend-title{font-size:var(--step--1); font-weight:650; color:var(--color-ink); margin-bottom:var(--space-2);}
+.av-legend-item{display:flex; align-items:flex-start; gap:var(--space-3); margin:var(--space-2) 0; font-size:0.92rem; color:var(--color-ink);}
+.av-legend-swatch{width:var(--space-4); height:var(--space-4); border-radius:50%; flex-shrink:0; margin-top:2px;}
+.av-legend-swatch.ring{background:transparent; border:2px solid var(--color-ink);}
 .av-legend-note{font-size:var(--step--1); color:var(--color-muted); line-height:1.4;}
 
-/* data status rows */
-.av-status{display:flex; justify-content:space-between; align-items:center; gap:var(--space-2); margin:var(--space-2) 0; font-size:0.88rem; color:var(--color-ink);}
-.av-status small{color:var(--color-muted); font-size:var(--step--1);}
-.av-dot{display:inline-block; width:10px; height:10px; border-radius:50%; flex-shrink:0; vertical-align:middle;}
-.av-dot.ok{background:var(--color-ok);} .av-dot.warn{background:var(--color-warn);}
-
-/* sidebar wordmark */
-.av-brand-name{font-size:var(--step-2); font-weight:700; color:var(--color-ink); line-height:1.1;}
-.av-brand-name span{color:var(--color-accent);}
-.av-brand-tag{font-size:var(--step--1); color:var(--color-muted); margin-top:2px;}
-
-/* dataset list (About) */
+/* dataset list and method steps (How we know) */
 .av-ds{padding:var(--space-3) 0; border-bottom:1px solid var(--color-rule);}
 .av-ds:last-child{border-bottom:none;}
-.av-ds-name{font-weight:600; color:var(--color-ink);}
+.av-ds-name{font-weight:650; color:var(--color-ink);}
 .av-ds-by{color:var(--color-muted); font-size:var(--step--1);}
-.av-ds-use{color:var(--color-ink-2); font-size:0.94rem; line-height:1.5; margin-top:2px;}
+.av-ds-use{color:var(--color-ink-2); font-size:0.95rem; line-height:1.5; margin-top:2px;}
 
-/* numbered method steps */
-.av-step{display:flex; gap:var(--space-4); align-items:flex-start; padding:var(--space-3) 0; border-bottom:1px solid var(--color-rule);}
-.av-step:last-child{border-bottom:none;}
-.av-step-num{width:var(--space-7); height:var(--space-7); border-radius:50%; border:1px solid var(--color-accent-line); color:var(--color-accent-soft);
-  font-weight:600; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:0.9rem; font-variant-numeric:tabular-nums;}
-.av-step-title{font-weight:600; color:var(--color-ink); margin-bottom:2px;}
-.av-step-body{color:var(--color-ink-2); font-size:0.94rem; line-height:1.55; max-width:75ch;}
+/* gradient legend under maps */
+.av-grad{display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-4); font-size:0.9rem; color:var(--color-ink-2); margin:var(--space-2) 0 var(--space-3) 0;}
+.av-grad-bar{display:flex; align-items:center; gap:var(--space-2);}
+.av-grad-strip{width:160px; height:12px; border-radius:6px;}
+.av-grad-dot{display:inline-block; width:12px; height:12px; border-radius:50%; vertical-align:-1px; margin-right:6px;}
 
-/* charts sit on the elevated surface */
+/* page links as cards */
+[data-testid="stPageLink"] a{background:var(--color-paper-2); border:1px solid var(--color-rule); border-radius:var(--radius-1); padding:var(--space-3) var(--space-4);}
+[data-testid="stPageLink"] a:hover{border-color:var(--color-accent-line);}
+[data-testid="stPageLink"] p{font-size:var(--step-0); font-weight:600;}
+
+/* charts sit on cards */
 [data-testid="stPlotlyChart"]{background:var(--color-paper-2); border:1px solid var(--color-rule); border-radius:var(--radius-1); padding:var(--space-2);}
-[data-testid="stDataFrame"]{font-variant-numeric:tabular-nums;}
+[data-testid="stExpander"] details{background:var(--color-paper-2); border-radius:var(--radius-1);}
+[data-testid="stExpander"] summary p{font-weight:600;}
 
 @media (max-width: 640px){
-  .block-container{padding-left:var(--space-4); padding-right:var(--space-4); padding-top:var(--space-6);}
-  .av-page-title{font-size:1.4rem;}
-  .av-stat-value{font-size:1.45rem;}
+  .block-container{padding-left:var(--space-4); padding-right:var(--space-4); padding-top:4rem;}
+  .av-page-title,.av-page-title.hero{font-size:1.55rem;}
+  .av-verdict-a{font-size:1.7rem;}
+  .av-card-big{font-size:1.8rem;}
   .av-insight-text{font-size:var(--step-1);}
 }
 @media (prefers-reduced-motion: reduce){ *{animation:none!important; transition:none!important;} }
@@ -165,43 +163,67 @@ def _md(html: str, container=None) -> None:
     (container or st).markdown(html, unsafe_allow_html=True)
 
 
-def sidebar_brand(tagline: str = "NASA Earth data and birds in the Philippines") -> None:
-    name = escape(APP_NAME)
-    if " " in name:
-        head, tail = name.rsplit(" ", 1)
-        name = f"{head} <span>{tail}</span>"
-    _md(f'<div class="av-brand-name">{name}</div><div class="av-brand-tag">{escape(tagline)}</div>', st.sidebar)
-
-
-def page_header(title: str, subtitle: str = "") -> None:
+def page_header(title: str, subtitle: str = "", hero: bool = False) -> None:
+    """Brand line, page title and a one-sentence purpose."""
     sub = f'<p class="av-page-sub">{escape(subtitle)}</p>' if subtitle else ""
-    _md(f'<h1 class="av-page-title">{escape(title)}</h1>{sub}')
+    cls = "av-page-title hero" if hero else "av-page-title"
+    _md(f'<div class="av-brand"><b>{escape(APP_NAME)}</b>&ensp;{escape(TAGLINE)}</div>'
+        f'<h1 class="{cls}">{escape(title)}</h1>{sub}')
 
 
-# Where a section's numbers come from, shown next to its heading when the real data is loaded.
-SOURCES = {
-    "satellite": ("NASA satellite data", "accent"),
-    "observed": ("observed eBird data", "ok"),
-    "model": ("model result", "accent"),
-}
-
-
-def source_tag(kind: str | None) -> str:
-    if not kind or kind not in SOURCES:
-        return ""
-    text, tone = SOURCES[kind]
-    return f'<span class="av-badge {tone}">{escape(text)}</span>'
-
-
-def section(title: str, sub: str | None = None, container=None, source: str | None = None) -> None:
+def section(title: str, sub: str | None = None, container=None) -> None:
     s = f'<span class="av-section-sub">{escape(sub)}</span>' if sub else ""
-    t = f' <span class="av-section-tag">{source_tag(source)}</span>' if source else ""
-    _md(f'<div class="av-section">{escape(title)}{s}{t}</div>', container)
+    _md(f'<div class="av-section">{escape(title)}{s}</div>', container)
+
+
+def cards(items: list[tuple[str, str, str, str]], container=None) -> None:
+    """Finding cards: (kicker, big figure, sentence, colour)."""
+    html = "".join(
+        f'<div class="av-card" style="--card-color:{escape(c)}"><div class="av-card-kicker">{escape(k)}</div>'
+        f'<div class="av-card-big">{escape(b)}</div><div class="av-card-text">{escape(t)}</div></div>'
+        for k, b, t, c in items)
+    _md(f'<div class="av-cards">{html}</div>', container)
+
+
+def verdict(question: str, answer: str, lines: list[str], color: str | None = None, muted_last: bool = False,
+            container=None) -> None:
+    """The answer for one selection: the question, a one- or two-word verdict, and plain lines under it."""
+    style = f' style="--verdict-color:{escape(color)}"' if color else ""
+    body = "".join(
+        f'<div class="av-verdict-line{" muted" if muted_last and i == len(lines) - 1 else ""}">{escape(x)}</div>'
+        for i, x in enumerate(lines) if x)
+    _md(f'<div class="av-verdict"{style}><div class="av-verdict-q">{escape(question)}</div>'
+        f'<div class="av-verdict-a">{escape(answer)}</div>{body}</div>', container)
+
+
+def numbered(items: list[tuple[str, str]], container=None) -> None:
+    """Numbered list of (title, body)."""
+    html = "".join(f'<div class="av-item"><div class="av-item-num">{i}</div><div><div class="av-item-title">'
+                   f'{escape(t)}</div><div class="av-item-body">{escape(b)}</div></div></div>'
+                   for i, (t, b) in enumerate(items, 1))
+    _md(f'<div class="av-list">{html}</div>', container)
+
+
+def places(title: str, rows: list[tuple[str, str]], note: str | None = None, container=None) -> None:
+    """A short list of (place name, value)."""
+    body = "".join(f'<div class="av-place"><span class="av-place-name">{escape(n)}</span>'
+                   f'<span class="av-place-val">{escape(v)}</span></div>' for n, v in rows)
+    nt = f'<div class="av-legend-note" style="margin-top:8px">{escape(note)}</div>' if note else ""
+    _md(f'<div class="av-legend"><div class="av-legend-title">{escape(title)}</div>{body}{nt}</div>', container)
+
+
+def gradient_legend(low: str, high: str, colors: list[str], extras: list[tuple[str, str]] | None = None,
+                    container=None) -> None:
+    """A colour strip with words at both ends, plus optional (colour, label) dots, for under a map."""
+    strip = f'linear-gradient(90deg, {", ".join(escape(c) for c in colors)})'
+    dots = "".join(f'<span><span class="av-grad-dot" style="background:{escape(c)}"></span>{escape(t)}</span>'
+                   for c, t in (extras or []))
+    _md(f'<div class="av-grad"><span class="av-grad-bar">{escape(low)}<span class="av-grad-strip" '
+        f'style="background:{strip}"></span>{escape(high)}</span>{dots}</div>', container)
 
 
 def stat_html(label: str, value: str, aside: str | None = None, desc: str | None = None, accent: bool = False,
               compact: bool = False) -> str:
-    """A figure tile: label, figure, optional measured aside, worded qualifier. accent marks state."""
     a = f'<span class="av-stat-aside">{escape(aside)}</span>' if aside else ""
     d = f'<div class="av-stat-desc">{escape(desc)}</div>' if desc else ""
     cls = "av-stat accent" if accent else "av-stat"
@@ -209,14 +231,12 @@ def stat_html(label: str, value: str, aside: str | None = None, desc: str | None
             f'<div><span class="av-stat-value{" compact" if compact else ""}">{escape(value)}</span>{a}</div>{d}</div>')
 
 
-def stats_row(cards: list[str], container=None) -> None:
-    _md(f'<div class="av-stats">{"".join(cards)}</div>', container)
+def stats_row(tiles: list[str], container=None) -> None:
+    _md(f'<div class="av-stats">{"".join(tiles)}</div>', container)
 
 
-def insight(text: str, kicker: str | None = None, meta: str | None = None, container=None) -> None:
-    """The one sentence that answers the question. No eyebrow: `kicker` is folded into the meta line."""
-    parts = [x for x in (kicker, meta) if x]
-    m = f'<div class="av-insight-meta">{escape(", ".join(parts))}</div>' if parts else ""
+def insight(text: str, meta: str | None = None, container=None) -> None:
+    m = f'<div class="av-insight-meta">{escape(meta)}</div>' if meta else ""
     _md(f'<div class="av-insight"><div class="av-insight-text">{escape(text)}</div>{m}</div>', container)
 
 
@@ -226,12 +246,8 @@ def alert(text: str, kind: str = "info", container=None, html: bool = False) -> 
 
 
 def gloss(html_text: str, container=None) -> None:
-    """A short plain-language explanation of specialist terms. Caller passes trusted, escaped HTML."""
+    """A short explanatory line. Caller passes trusted, escaped HTML."""
     _md(f'<p class="av-gloss">{html_text}</p>', container)
-
-
-def badge(text: str, tone: str = "") -> str:
-    return f'<span class="av-badge {tone}">{escape(text)}</span>'
 
 
 def legend(title: str, items: list[tuple[str, str, str | None]], note: str | None = None, container=None) -> None:
@@ -252,30 +268,25 @@ def dataset(name: str, url: str | None, by: str, use: str) -> str:
             f'<div class="av-ds-use">{escape(use)}</div></div>')
 
 
-def step(num: int, title: str, body: str) -> str:
-    return (f'<div class="av-step"><div class="av-step-num">{num}</div><div>'
-            f'<div class="av-step-title">{escape(title)}</div><div class="av-step-body">{escape(body)}</div></div></div>')
-
-
 def style_fig(fig, height: int | None = None, legend_bottom: bool = True):
-    """Charts on the elevated surface: transparent ground, hairline grid, text in ink tones, never series colours."""
+    """Charts on white cards: transparent ground, light grid, text in ink tones."""
     p = PALETTE
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=p["ink2"], size=12),
-        title=dict(font=dict(color=p["ink"], size=14), x=0.01, xanchor="left"),
-        hoverlabel=dict(bgcolor=p["paper3"], bordercolor=p["rule"], font_color=p["ink"]),
-        # toolbar on its own dark chip, so the light focus ring reads even over light map tiles
-        modebar=dict(bgcolor=p["paper2"], color=p["ink2"], activecolor=p["ink"]),
+        font=dict(color=p["ink2"], size=13),
+        hoverlabel=dict(bgcolor=p["paper2"], bordercolor=p["rule"], font_color=p["ink"], font_size=13),
+        modebar=dict(bgcolor="rgba(0,0,0,0)", color=p["muted"], activecolor=p["ink"]),
     )
     if legend_bottom:
-        fig.update_layout(legend=dict(orientation="h", y=-0.18, x=0, bgcolor="rgba(0,0,0,0)", font=dict(color=p["ink2"])))
+        fig.update_layout(legend=dict(orientation="h", y=-0.2, x=0, bgcolor="rgba(0,0,0,0)", font=dict(color=p["ink2"])))
     if height:
         fig.update_layout(height=height)
-    fig.update_xaxes(gridcolor=p["rule"], zerolinecolor=p["rule"], linecolor=p["rule"], showgrid=False, tickfont=dict(color=p["muted"]))
+    fig.update_xaxes(gridcolor=p["rule"], zerolinecolor=p["rule"], linecolor=p["rule"], showgrid=False,
+                     tickfont=dict(color=p["muted"]))
     fig.update_yaxes(gridcolor=p["rule"], zerolinecolor=p["rule"], nticks=5, tickfont=dict(color=p["muted"]))
     return fig
 
 
-# Maps never hijack page scrolling (use the +/- buttons or drag to move).
-MAP_CONFIG = {"scrollZoom": False, "displaylogo": False}
+# Maps never hijack page scrolling (use the +/- buttons or drag to move); no toolbar clutter.
+MAP_CONFIG = {"scrollZoom": False, "displaylogo": False, "displayModeBar": False}
+CHART_CONFIG = {"displaylogo": False, "displayModeBar": False}

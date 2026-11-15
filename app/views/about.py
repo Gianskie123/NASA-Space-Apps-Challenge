@@ -8,7 +8,17 @@ import ui
 
 ROOT = Path(__file__).resolve().parents[2]
 
-ui.page_header("About the data", "Where the numbers come from, how we tested them, and what they can't tell you.")
+ui.page_header("How we know", "Where the numbers come from, how we tested them, and what they cannot tell you.")
+
+ui.section("In short")
+ui.numbered([
+    ("Satellites, not guesses", "Four free NASA satellite datasets measure night light, greenery, ground "
+     "temperature and rain every month from 2014 to 2025, for every province."),
+    ("A change only counts if it is steady", "We use standard trend tests that ignore the normal wet and dry seasons "
+     "and only call a change real when it is very unlikely to be chance."),
+    ("Real birdwatching records", "Bird results use only complete checklists from eBird, where birdwatchers report "
+     "every species they saw. Places nobody visited are left blank, never counted as zero birds."),
+])
 
 ui.section("Datasets")
 EE = "https://developers.google.com/earth-engine/datasets/catalog/"
@@ -48,30 +58,30 @@ st.markdown("""
   known MODIS quality artefact, and land-cover shares sum to about 0.99 rather than exactly 1.
 """)
 
-ui.section("Method in six steps")
-st.markdown("".join([
-    ui.step(1, "Satellite data to monthly tables",
+ui.section("Method in six steps", "The technical detail behind the results.")
+ui.numbered([
+    ("Satellite data to monthly tables",
             "Google Earth Engine averages each NASA product per province and per 1 km cell, January 2014 to "
             "December 2025 (144 months). Months with under 30% usable pixels, mostly cloud, are left missing."),
-    ui.step(2, "Trend test",
+    ("Trend test",
             "Monthly series use the Seasonal Mann–Kendall test, which compares each January only with other Januaries "
             "so the monsoon cannot fake a trend. Yearly series use Mann–Kendall with the Hamed–Rao correction. "
             "Sen's slope, the median rate of change, gives the size."),
-    ui.step(3, "Many provinces at once",
+    ("Many provinces at once",
             "When every province is tested, significance is corrected with the Benjamini–Hochberg false discovery "
             "rate, so a few provinces do not look significant by chance."),
-    ui.step(4, "Checklists, true absences and gaps",
+    ("Checklists, true absences and gaps",
             "Yearly eBird files are rebuilt into complete checklists (validated against real eBird IDs for 2025, "
             "within 0.4%) and filtered by eBird best practice. A focus species missing from a complete checklist "
             "was looked for and not found: a true absence. A cell with no checklist is an observation gap and stays blank."),
-    ui.step(5, "Bird model",
+    ("Bird model",
             "A logistic regression with standard errors clustered by cell tests whether night light affects "
             "light-sensitive species differently from light-tolerant ones, controlling for forest, heat, rain, "
             "season and birding effort. Busy hotspots are thinned so they do not dominate."),
-    ui.step(6, "No circularity",
+    ("No circularity",
             "Significance tests and model results use real checklists only. Nothing predicted from the satellite "
             "data is ever fed back into a test."),
-]), unsafe_allow_html=True)
+])
 
 ui.section("Limitations")
 st.markdown("""

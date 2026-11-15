@@ -228,6 +228,19 @@ def robustness() -> pd.DataFrame | None:
 
 
 @st.cache_data(show_spinner=False)
+def priority_areas() -> pd.DataFrame | None:
+    """Places where light-sensitive birds are reported, with the rise in night light (src/priority.py)."""
+    return _parquet("priority_areas.parquet") if available("priority_areas.parquet") else None
+
+
+@st.cache_data(show_spinner=False)
+def by_status() -> pd.DataFrame | None:
+    """Night-light odds ratios split by resident / migrant and sensitive / tolerant."""
+    name = "alan_by_migratory_status.csv"
+    return _read(name, pd.read_csv) if available(name) else None
+
+
+@st.cache_data(show_spinner=False)
 def spatial_checks() -> pd.DataFrame | None:
     return _read("spatial_checks.csv", pd.read_csv) if available("spatial_checks.csv") else None
 

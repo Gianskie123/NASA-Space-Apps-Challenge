@@ -11,7 +11,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 EARLY, LATE = (2014, 2016), (2023, 2025)

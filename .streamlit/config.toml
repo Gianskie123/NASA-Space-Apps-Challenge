@@ -1,22 +1,19 @@
-# Dark navy theme (AviLight palette), Hallmark rules: no pure white text, one accent.
+# Light theme for projectors, printouts and government readers (tokens mirrored in app/ui.py).
 [theme]
-base = "dark"
-primaryColor = "#4f8ff7"
-backgroundColor = "#0f1117"
-secondaryBackgroundColor = "#1a1d23"
-textColor = "#e8eaef"
-borderColor = "#2c313b"
+base = "light"
+primaryColor = "#1f5fbf"
+backgroundColor = "#f6f6f3"
+secondaryBackgroundColor = "#efefea"
+textColor = "#1b2230"
+borderColor = "#e1e1da"
 baseRadius = "medium"
-
-[theme.sidebar]
-backgroundColor = "#1a1d23"
-secondaryBackgroundColor = "#21252d"
 
 [client]
 toolbarMode = "minimal"
 # Security: visitors see a generic message on an error; tracebacks, local paths and exception text stay in
 # the server log only.
 showErrorDetails = "none"
+showSidebarNavigation = false
 
 [browser]
 gatherUsageStats = false
